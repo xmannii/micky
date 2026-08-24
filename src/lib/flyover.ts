@@ -1,4 +1,4 @@
-import type { AppearanceSnapshot } from './settings'
+import type { AppearanceSnapshot, FlyoverInputMode } from './settings'
 import type { EarconKind } from './earcon'
 
 export const FLYOVER_SNAPSHOT_CHANNEL = 'flyover:snapshot'
@@ -23,6 +23,7 @@ export type FlyoverPhase =
 export type FlyoverSnapshot = {
   visible: boolean
   mode: FlyoverMode
+  inputMode: FlyoverInputMode
   phase: FlyoverPhase
   title: string
   text: string
@@ -41,6 +42,7 @@ export type FlyoverSnapshot = {
 export const INITIAL_FLYOVER_SNAPSHOT: FlyoverSnapshot = {
   visible: false,
   mode: 'assistant',
+  inputMode: 'voice',
   phase: 'hidden',
   title: '',
   text: '',

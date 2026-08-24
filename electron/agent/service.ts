@@ -17,6 +17,7 @@ import { buildSystemInstructions, type AgentResponseSurface } from '../soul/prom
 import type { SoulStore } from '../soul/store'
 import type { ApprovalRequest } from '../system/exec'
 import { activeAgentToolNames, createAgentTools } from './tools'
+import { agentErrorMessage, emptyResponseMessage, errorText } from './error-message'
 import { hasExplicitScreenIntent } from '../vision/intent'
 import type { ChatStore } from '../chats/store'
 import type { SkillService } from '../skills/service'
@@ -133,6 +134,7 @@ export class AgentService {
       const tools = createAgentTools(this.options.soul, {
         chats: this.options.chats,
         systemToolsEnabled: settings.systemToolsEnabled !== false,
+        toolApprovals: settings.toolApprovals,
         screenAccessEnabled: settings.screenAccessEnabled !== false,
         abortSignal: abort.signal,
         onEndConversation: () => {
@@ -203,10 +205,15 @@ export class AgentService {
       })
 
       let reply = ''
-      for await (const delta of result.textStream) {
+      let streamError: unknown = null
+      for await (const part of result.stream) {
         if (abort.signal.aborted) return 'aborted'
-        if (!delta) continue
-        reply += delta
+        if (part.type === 'error') {
+          streamError = part.error
+          continue
+        }
+        if (part.type !== 'text-delta' || !part.text) continue
+        reply += part.text
         this.#setTurn({
           ...this.#currentTurn(turnId, turn),
           phase: 'speaking',
@@ -215,23 +222,47 @@ export class AgentService {
           confirmDetail: null,
           replyText: reply
         })
-        this.#emitDelta({ turnId, delta, text: reply })
+        this.#emitDelta({ turnId, delta: part.text, text: reply })
       }
 
       if (abort.signal.aborted) return 'aborted'
+      // The SDK rejects its result promises with a generic "No output generated" wrapper
+      // when a provider stream ends badly. Preserve the error event from the stream instead.
+      if (streamError) throw streamError
 
-      const [responseMessages, usage, steps] = await Promise.all([
+      const [responseMessages, usage, steps, finishReason, rawFinishReason] = await Promise.all([
         result.responseMessages,
         result.usage,
-        result.steps
+        result.steps,
+        result.finishReason,
+        result.rawFinishReason
       ])
       console.info('[agent] model usage', {
+        provider: settings.llm.providerId,
+        modelId: settings.llm.modelId,
         inputTokens: usage.inputTokens,
         cacheReadTokens: usage.inputTokenDetails.cacheReadTokens,
         cacheWriteTokens: usage.inputTokenDetails.cacheWriteTokens,
         outputTokens: usage.outputTokens,
-        steps: steps.length
+        steps: steps.length,
+        finishReason,
+        rawFinishReason
       })
+      if (!reply.trim()) {
+        console.warn('[agent] model returned no visible response', {
+          provider: settings.llm.providerId,
+          modelId: settings.llm.modelId,
+          finishReason,
+          rawFinishReason,
+          steps: steps.map((step) => ({
+            finishReason: step.finishReason,
+            rawFinishReason: step.rawFinishReason,
+            outputTokens: step.usage.outputTokens
+          }))
+        })
+        this.#fail(this.#currentTurn(turnId, turn), emptyResponseMessage())
+        return 'skipped'
+      }
       if (endRequested) {
         this.#history = []
       } else {
@@ -250,9 +281,13 @@ export class AgentService {
       return endRequested ? 'ended' : 'completed'
     } catch (error) {
       if (abort.signal.aborted) return 'aborted'
-      const message =
-        error instanceof Error && error.message.trim() ? error.message : 'جواب‌دادن ناموفق بود.'
-      this.#fail(this.#currentTurn(turnId, turn), message)
+      console.warn('[agent] response failed', {
+        provider: this.options.settings.get().llm.providerId,
+        modelId: this.options.settings.get().llm.modelId,
+        error: errorText(error),
+        cause: errorCauseText(error)
+      })
+      this.#fail(this.#currentTurn(turnId, turn), agentErrorMessage(error))
       return 'skipped'
     } finally {
       this.resolveApproval(false)
@@ -331,6 +366,11 @@ export class AgentService {
       window.webContents.send(AGENT_DELTA_CHANNEL, delta)
     }
   }
+}
+
+function errorCauseText(error: unknown): string {
+  if (!(error instanceof Error) || !('cause' in error)) return ''
+  return errorText(error.cause)
 }
 
 function trimHistory(messages: ModelMessage[]): ModelMessage[] {

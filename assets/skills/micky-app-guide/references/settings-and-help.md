@@ -11,7 +11,7 @@
 - `مهارت‌ها`: global skills switch and one switch per bundled or discovered skill.
 - `ابزارها و دسترسی‌ها`: screen access, vision model, and local file/app/command tools.
 - `گفتگوها`: local conversation-history switch and deletion controls.
-- `میانبرها`: assistant, new conversation, dictation, wake-word toggle, dictation cleanup/paste, and launch at login.
+- `میانبرها`: assistant, new conversation, flyover voice/typing preference, dictation, wake-word toggle, dictation cleanup/paste, and launch at login.
 - `نسخه و تغییرات`: installed version and available releases.
 - `روش کار`: a compact in-app explanation of the listening, brain, speaking, and local-storage flow.
 
@@ -49,6 +49,8 @@ All shortcuts can be changed in `میانبرها`:
 - `گفتگوی تازه`: clears the active model context and starts fresh.
 - `دیکته در برنامه فعال`: transcribes into the focused app, with optional AI cleanup and auto-paste.
 - `روشن یا خاموش کردن عبارت بیدارباش`: toggles listening for `هی میکی` without disabling the other shortcuts.
+
+The shortcut flyover can be set to voice only, typing only, or both. In `both`, starting to type makes the rest of that open flyover conversation typing-only, so follow-up turns do not restart microphone capture. A new flyover session starts from the saved preference again.
 
 ## Common problems
 

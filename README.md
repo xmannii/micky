@@ -55,7 +55,7 @@ This split makes local and cloud setups practical. One person can use local list
       follow-up listening
 ```
 
-Micky keeps the current conversation active across follow-up windows and app reloads. A separate global shortcut opens a clean conversation when context is no longer useful. The flyover shows the latest answer, offers voice and typing together, switches to a live transcript when you speak, and restores the response field after the reply. It grows in two steps for longer answers and keeps the text scrollable and selectable.
+Micky keeps the current conversation active across follow-up windows and app reloads. A separate global shortcut opens a clean conversation when context is no longer useful. The flyover can use voice only, typing only, or both. When typing wins a session, later turns stay typed and the microphone does not restart. It grows in two steps for longer answers and keeps the text scrollable and selectable.
 
 ## What Micky can do
 

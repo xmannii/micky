@@ -8,7 +8,6 @@ import {
   Download,
   Ear,
   ExternalLink,
-  FileTerminal,
   History,
   Globe2,
   Keyboard,
@@ -66,6 +65,7 @@ import { Badge } from '@/components/ui/badge'
 import { Kbd, KbdGroup } from '@/components/ui/kbd'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
@@ -89,6 +89,7 @@ import { useAudioDevices } from '@/hooks/use-audio-devices'
 import { useWebSearch } from '@/hooks/use-web-search'
 import { WebSearchSettings } from '@/components/web-search-settings'
 import { AppVersionSettings } from '@/components/app-version-settings'
+import { SystemToolsSettings } from '@/components/system-tools-settings'
 import {
   Empty,
   EmptyContent,
@@ -541,7 +542,7 @@ function ShortcutSettings({ settings }: { settings: SettingsSnapshot }): React.J
             <ShortcutField
               id="assistant-shortcut"
               label="دستیار میکی"
-              description="میکی را باز می‌کند، گفتگوی فعلی را ادامه می‌دهد و شروع به شنیدن می‌کند"
+              description="پنجره کوچک میکی را با روش گفتگوی انتخاب‌شده باز می‌کند و گفتگوی فعلی را ادامه می‌دهد"
               value={settings.assistantShortcut}
               platform={platform}
               onChange={(value) => window.api.settings.setShortcut('assistant', value)}
@@ -589,6 +590,51 @@ function ShortcutSettings({ settings }: { settings: SettingsSnapshot }): React.J
               </p>
             </>
           )}
+        </CardFooter>
+      </Card>
+
+      <Card size="sm" className="bg-card/30">
+        <CardHeader>
+          <CardTitle id="flyover-input-label">روش گفتگو در پنجره کوچک</CardTitle>
+          <CardDescription>
+            وقتی با میانبر دستیار یا گفتگوی تازه، میکی را روی برنامه فعلی باز می‌کنی
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ToggleGroup
+            value={[settings.flyoverInputMode]}
+            multiple={false}
+            variant="outline"
+            spacing={2}
+            className="w-full"
+            aria-labelledby="flyover-input-label"
+            onValueChange={(values) => {
+              const mode = values.at(-1)
+              if (mode === 'voice' || mode === 'typing' || mode === 'both') {
+                void window.api.settings.setFlyoverInputMode(mode)
+              }
+            }}
+          >
+            <ToggleGroupItem value="voice" className="flex-1">
+              <Mic data-icon="inline-start" />
+              فقط صدا
+            </ToggleGroupItem>
+            <ToggleGroupItem value="typing" className="flex-1">
+              <Keyboard data-icon="inline-start" />
+              فقط تایپ
+            </ToggleGroupItem>
+            <ToggleGroupItem value="both" className="flex-1">
+              <Sparkles data-icon="inline-start" />
+              هر دو
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </CardContent>
+        <CardFooter className="gap-2 text-start">
+          <Keyboard className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <p className="text-xs leading-5 text-muted-foreground">
+            اگر در حالت «هر دو» شروع به نوشتن کنی، ادامه همان گفتگو تایپی می‌ماند و میکروفن دوباره
+            روشن نمی‌شود
+          </p>
         </CardFooter>
       </Card>
 
@@ -874,7 +920,7 @@ function ToolsAndAccessSettings({
     <div className="flex flex-col gap-3">
       <ScreenAccessSetting settings={settings} />
       {llm ? <VisionModelSetting settings={settings} llm={llm} /> : null}
-      <SystemToolsSetting enabled={settings.systemToolsEnabled} />
+      <SystemToolsSettings settings={settings} />
     </div>
   )
 }
@@ -1034,78 +1080,6 @@ function HowMickyWorks(): React.JSX.Element {
         </ol>
       </CardContent>
     </Card>
-  )
-}
-
-function SystemToolsSetting({ enabled }: { enabled: boolean }): React.JSX.Element {
-  return (
-    <Card size="sm" className="bg-card/30">
-      <CardHeader>
-        <CardTitle id="system-tools-label">فایل‌ها، برنامه‌ها و دستورها</CardTitle>
-        <CardDescription>
-          خواندن و جستجوی فایل، بازکردن برنامه، نوشتن فایل و اجرای دستورهای ترمینال
-        </CardDescription>
-        <CardAction>
-          <Switch
-            dir="ltr"
-            checked={enabled}
-            aria-labelledby="system-tools-label"
-            onCheckedChange={(checked) => void window.api.settings.setSystemToolsEnabled(checked)}
-          />
-        </CardAction>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-col gap-3">
-          <ToolPolicyItem
-            icon={FileTerminal}
-            title="کارهای عادی"
-            description="خواندن فایل و دستورهای بی‌خطر در مسیرهای مجاز مستقیم انجام می‌شوند"
-            badge="بدون تأیید اضافه"
-          />
-          <Separator />
-          <ToolPolicyItem
-            icon={ShieldCheck}
-            title="کارهای حساس"
-            description="دستورهای تغییردهنده، حذف، نصب و دسترسی شبکه فقط بعد از بله گفتن تو اجرا می‌شوند"
-            badge="نیازمند تأیید"
-          />
-          <Separator />
-          <ToolPolicyItem
-            icon={LockKeyhole}
-            title="مرزهای ثابت"
-            description="رمزها، کلیدها، داده مرورگر، مسیرهای محافظت‌شده و sudo همیشه مسدودند"
-            badge="همیشه مسدود"
-          />
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function ToolPolicyItem({
-  icon: Icon,
-  title,
-  description,
-  badge
-}: {
-  icon: typeof ShieldCheck
-  title: string
-  description: string
-  badge: string
-}): React.JSX.Element {
-  return (
-    <div className="flex items-start gap-3 text-start">
-      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
-        <Icon className="size-4" aria-hidden="true" />
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex flex-wrap items-center justify-between gap-1.5">
-          <h3 className="text-xs font-medium">{title}</h3>
-          <Badge variant="outline">{badge}</Badge>
-        </div>
-        <p className="text-[0.68rem] leading-5 text-muted-foreground">{description}</p>
-      </div>
-    </div>
   )
 }
 

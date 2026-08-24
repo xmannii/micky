@@ -16,11 +16,18 @@ import { writeNeedsApproval } from '../system/write-policy'
 import { fetchCleanWebpage } from '../system/web-fetch'
 import type { SkillService } from '../skills/service'
 import type { WebSearchService } from '../web-search/service'
+import {
+  DEFAULT_TOOL_APPROVALS,
+  type SystemToolId,
+  type ToolApprovalMode,
+  type ToolApprovalSettings
+} from '@/lib/settings'
 
 export type AgentToolHooks = {
   chats?: ChatStore
   onEndConversation?: () => void
   systemToolsEnabled?: boolean
+  toolApprovals?: ToolApprovalSettings
   requestApproval?: (request: ApprovalRequest) => Promise<boolean>
   abortSignal?: AbortSignal
   screenAccessEnabled?: boolean
@@ -249,154 +256,266 @@ export function createAgentTools(soul: SoulStore, hooks: AgentToolHooks = {}): T
 
   if (!hooks.systemToolsEnabled) return tools
 
-  tools.fetch_webpage = tool({
-    description:
-      'Fetch a public web page and return its clean readable text plus title and source metadata. Use for a URL the user gives you and for facts that may have changed. This tool performs only an anonymous GET: it cannot access logins, local network pages, downloads, or private addresses.',
-    inputSchema: z.object({
-      url: z.string().min(1).max(2_000).describe('A complete public http(s) URL')
-    }),
-    execute: async ({ url }) =>
-      guardAction(
-        async () => fetchCleanWebpage(url, { abortSignal: hooks.abortSignal }),
-        'دریافت صفحه ناموفق بود.'
-      )
-  })
-
-  tools.read_file = tool({
-    description:
-      'Read a UTF-8 text file on this computer. Use for notes, configs, documents, CSV, Markdown, and source code in approved user locations. Never read secrets such as keys, browser data, shell history, or .env files.',
-    inputSchema: z.object({
-      path: z.string().min(1).max(500).describe('Absolute path or ~/path')
-    }),
-    execute: async ({ path }) =>
-      guardPath(async () => {
-        const result = await readUserFile(path)
-        return { path: result.path, content: result.content, truncated: result.truncated }
-      })
-  })
-
-  tools.write_file = tool({
-    description:
-      'Create, replace, or append to a UTF-8 text file such as TXT, Markdown, CSV, JSON, or source code. Use only when the user asks you to save or change a file. Read an existing file before overwriting it, preserve unrelated content, and prefer create for new files. Ordinary text, data, configuration, and source-code files are written without an extra confirmation. Executable, shell-startup, and OS auto-start formats still require approval. Protected paths and binary files are blocked.',
-    inputSchema: z.object({
-      path: z.string().min(1).max(500).describe('Absolute path or ~/path for the destination file'),
-      content: z
-        .string()
-        .refine((value) => !value.includes('\0'), {
-          message: 'Content must be plain UTF-8 text without null bytes.'
-        })
-        .refine((value) => Buffer.byteLength(value, 'utf8') <= MAX_WRITE_BYTES, {
-          message: 'Content must be no larger than 512 KB as UTF-8.'
-        })
-        .describe('The exact UTF-8 text to write, up to 512 KB'),
-      mode: z
-        .enum(['create', 'overwrite', 'append'])
-        .describe('create refuses an existing file; overwrite replaces it; append adds to it'),
-      purpose: z
-        .string()
-        .min(1)
-        .max(160)
-        .describe('One short Persian sentence explaining the file change to the user')
-    }),
-    execute: async ({ path, content, mode, purpose }) =>
-      guardAction(async () => {
-        const resolvedPath = await resolveSafePath(path)
-        if (writeNeedsApproval(resolvedPath)) {
-          if (!hooks.requestApproval) {
-            return { written: false, message: 'نوشتن این نوع فایل در این جلسه در دسترس نیست.' }
-          }
-          const approved = await hooks.requestApproval({
-            purpose,
-            command: resolvedPath,
-            toolName: 'write_file',
-            detail: `${mode}: ${resolvedPath}`
+  if (toolIsEnabled(hooks, 'fetch_webpage'))
+    tools.fetch_webpage = tool({
+      description:
+        'Fetch a public web page and return its clean readable text plus title and source metadata. Use for a URL the user gives you and for facts that may have changed. This tool performs only an anonymous GET: it cannot access logins, local network pages, downloads, or private addresses.',
+      inputSchema: z.object({
+        url: z.string().min(1).max(2_000).describe('A complete public http(s) URL')
+      }),
+      execute: async ({ url }) =>
+        guardAction(async () => {
+          const approved = await requestToolApproval(hooks, 'fetch_webpage', {
+            purpose: 'این صفحه را از وب دریافت کنم؟',
+            command: url,
+            toolName: 'fetch_webpage',
+            detail: url
           })
-          if (!approved) return { written: false, approved: false, message: 'کاربر اجازه نداد.' }
-        }
-        const result = await writeUserFile(resolvedPath, content, mode)
-        return { written: true, ...result }
-      }, 'نوشتن فایل ناموفق بود.')
-  })
+          if (!approved) return approvalDenied()
+          return fetchCleanWebpage(url, { abortSignal: hooks.abortSignal })
+        }, 'دریافت صفحه ناموفق بود.')
+    })
 
-  tools.list_directory = tool({
-    description: 'List files and folders in an approved directory on this computer.',
-    inputSchema: z.object({
-      path: z.string().min(1).max(500).describe('Directory path, absolute or ~/path')
-    }),
-    execute: async ({ path }) =>
-      guardPath(async () => {
-        const result = await listUserDirectory(path)
-        return { path: result.path, entries: result.entries, truncated: result.truncated }
-      })
-  })
+  if (toolIsEnabled(hooks, 'read_file'))
+    tools.read_file = tool({
+      description:
+        'Read a UTF-8 text file on this computer. Use for notes, configs, documents, CSV, Markdown, and source code in approved user locations. Never read secrets such as keys, browser data, shell history, or .env files.',
+      inputSchema: z.object({
+        path: z.string().min(1).max(500).describe('Absolute path or ~/path')
+      }),
+      execute: async ({ path }) =>
+        guardPath(async () => {
+          const approved = await requestToolApproval(hooks, 'read_file', {
+            purpose: 'این فایل را بخوانم؟',
+            command: path,
+            toolName: 'read_file',
+            detail: path
+          })
+          if (!approved) return approvalDenied()
+          const result = await readUserFile(path)
+          return { path: result.path, content: result.content, truncated: result.truncated }
+        })
+    })
 
-  tools.search_files = tool({
-    description:
-      'Find files and folders by name. Prefer a narrow directory. Skips .git, node_modules, and Library when searching from home.',
-    inputSchema: z.object({
-      query: z.string().min(1).max(120).describe('Substring of the file or folder name'),
-      directory: z
-        .string()
-        .max(500)
-        .optional()
-        .describe('Directory to search; defaults to the user home')
-    }),
-    execute: async ({ query, directory }) =>
-      guardPath(async () => {
-        const result = await searchUserFiles(query, directory?.trim() || '~')
-        return { directory: result.directory, matches: result.matches, truncated: result.truncated }
-      })
-  })
+  if (toolIsEnabled(hooks, 'write_file'))
+    tools.write_file = tool({
+      description: writeFileDescription(getToolApprovalMode(hooks, 'write_file')),
+      inputSchema: z.object({
+        path: z
+          .string()
+          .min(1)
+          .max(500)
+          .describe('Absolute path or ~/path for the destination file'),
+        content: z
+          .string()
+          .refine((value) => !value.includes('\0'), {
+            message: 'Content must be plain UTF-8 text without null bytes.'
+          })
+          .refine((value) => Buffer.byteLength(value, 'utf8') <= MAX_WRITE_BYTES, {
+            message: 'Content must be no larger than 512 KB as UTF-8.'
+          })
+          .describe('The exact UTF-8 text to write, up to 512 KB'),
+        mode: z
+          .enum(['create', 'overwrite', 'append'])
+          .describe('create refuses an existing file; overwrite replaces it; append adds to it'),
+        purpose: z
+          .string()
+          .min(1)
+          .max(160)
+          .describe('One short Persian sentence explaining the file change to the user')
+      }),
+      execute: async ({ path, content, mode, purpose }) =>
+        guardAction(async () => {
+          const resolvedPath = await resolveSafePath(path)
+          const approvalMode = getToolApprovalMode(hooks, 'write_file')
+          if (
+            approvalMode === 'confirm' ||
+            (approvalMode === 'smart' && writeNeedsApproval(resolvedPath))
+          ) {
+            if (!hooks.requestApproval) {
+              return { written: false, message: 'نوشتن این نوع فایل در این جلسه در دسترس نیست.' }
+            }
+            const approved = await hooks.requestApproval({
+              purpose,
+              command: resolvedPath,
+              toolName: 'write_file',
+              detail: `${mode}: ${resolvedPath}`
+            })
+            if (!approved) return { written: false, approved: false, message: 'کاربر اجازه نداد.' }
+          }
+          const result = await writeUserFile(resolvedPath, content, mode)
+          return { written: true, ...result }
+        }, 'نوشتن فایل ناموفق بود.')
+    })
 
-  tools.search_in_files = tool({
-    description: 'Search the contents of text files for a literal string.',
-    inputSchema: z.object({
-      query: z.string().min(1).max(120).describe('Literal text to find'),
-      directory: z
-        .string()
-        .max(500)
-        .optional()
-        .describe('Directory to search; defaults to the user home')
-    }),
-    execute: async ({ query, directory }) =>
-      guardPath(async () => {
-        const result = await searchInUserFiles(query, directory?.trim() || '~')
-        return { directory: result.directory, hits: result.hits, truncated: result.truncated }
-      })
-  })
+  if (toolIsEnabled(hooks, 'list_directory'))
+    tools.list_directory = tool({
+      description: 'List files and folders in an approved directory on this computer.',
+      inputSchema: z.object({
+        path: z.string().min(1).max(500).describe('Directory path, absolute or ~/path')
+      }),
+      execute: async ({ path }) =>
+        guardPath(async () => {
+          const approved = await requestToolApproval(hooks, 'list_directory', {
+            purpose: 'فهرست این پوشه را ببینم؟',
+            command: path,
+            toolName: 'list_directory',
+            detail: path
+          })
+          if (!approved) return approvalDenied()
+          const result = await listUserDirectory(path)
+          return { path: result.path, entries: result.entries, truncated: result.truncated }
+        })
+    })
 
-  tools.open_app = tool({
-    description:
-      'Open an app, file, or web URL using the operating system. Pass an app name, a file path, or an https URL. Do not pass shell flags or commands.',
-    inputSchema: z.object({
-      target: z.string().min(1).max(300).describe('App name, file path, or http(s) URL')
-    }),
-    execute: async ({ target }) => openUserTarget(target)
-  })
+  if (toolIsEnabled(hooks, 'search_files'))
+    tools.search_files = tool({
+      description:
+        'Find files and folders by name. Prefer a narrow directory. Skips .git, node_modules, and Library when searching from home.',
+      inputSchema: z.object({
+        query: z.string().min(1).max(120).describe('Substring of the file or folder name'),
+        directory: z
+          .string()
+          .max(500)
+          .optional()
+          .describe('Directory to search; defaults to the user home')
+      }),
+      execute: async ({ query, directory }) =>
+        guardPath(async () => {
+          const target = directory?.trim() || '~'
+          const approved = await requestToolApproval(hooks, 'search_files', {
+            purpose: 'بین نام فایل‌ها جستجو کنم؟',
+            command: target,
+            toolName: 'search_files',
+            detail: `${query} — ${target}`
+          })
+          if (!approved) return approvalDenied()
+          const result = await searchUserFiles(query, directory?.trim() || '~')
+          return {
+            directory: result.directory,
+            matches: result.matches,
+            truncated: result.truncated
+          }
+        })
+    })
 
-  tools.run_command = tool({
-    description:
-      'Run a terminal command on this computer. Prefer the dedicated file, web, search, and open tools when they fit. Safe read-only commands run immediately. Anything that writes, deletes, installs, or uses the network needs the user to say yes. Never use sudo. Fill purpose with one short spoken Persian sentence describing what you are about to do, without the raw command.',
-    inputSchema: z.object({
-      command: z.string().min(1).max(1_000).describe('The exact command to run'),
-      purpose: z
-        .string()
-        .min(1)
-        .max(160)
-        .describe('One short Persian sentence for the user, not the command itself')
-    }),
-    execute: async ({ command, purpose }) => {
-      if (!hooks.requestApproval) {
-        return { ran: false, message: 'اجرای دستور در این جلسه در دسترس نیست.' }
+  if (toolIsEnabled(hooks, 'search_in_files'))
+    tools.search_in_files = tool({
+      description: 'Search the contents of text files for a literal string.',
+      inputSchema: z.object({
+        query: z.string().min(1).max(120).describe('Literal text to find'),
+        directory: z
+          .string()
+          .max(500)
+          .optional()
+          .describe('Directory to search; defaults to the user home')
+      }),
+      execute: async ({ query, directory }) =>
+        guardPath(async () => {
+          const target = directory?.trim() || '~'
+          const approved = await requestToolApproval(hooks, 'search_in_files', {
+            purpose: 'داخل فایل‌ها جستجو کنم؟',
+            command: target,
+            toolName: 'search_in_files',
+            detail: `${query} — ${target}`
+          })
+          if (!approved) return approvalDenied()
+          const result = await searchInUserFiles(query, directory?.trim() || '~')
+          return { directory: result.directory, hits: result.hits, truncated: result.truncated }
+        })
+    })
+
+  if (toolIsEnabled(hooks, 'open_app'))
+    tools.open_app = tool({
+      description:
+        'Open an app, file, or web URL using the operating system. Pass an app name, a file path, or an https URL. Do not pass shell flags or commands.',
+      inputSchema: z.object({
+        target: z.string().min(1).max(300).describe('App name, file path, or http(s) URL')
+      }),
+      execute: async ({ target }) => {
+        const approved = await requestToolApproval(hooks, 'open_app', {
+          purpose: 'این برنامه، فایل یا لینک را باز کنم؟',
+          command: target,
+          toolName: 'open_app',
+          detail: target
+        })
+        return approved ? openUserTarget(target) : approvalDenied()
       }
-      return runUserCommand(command, purpose, {
-        requestApproval: hooks.requestApproval,
-        abortSignal: hooks.abortSignal
-      })
-    }
-  })
+    })
+
+  if (toolIsEnabled(hooks, 'run_command'))
+    tools.run_command = tool({
+      description: runCommandDescription(getToolApprovalMode(hooks, 'run_command')),
+      inputSchema: z.object({
+        command: z.string().min(1).max(1_000).describe('The exact command to run'),
+        purpose: z
+          .string()
+          .min(1)
+          .max(160)
+          .describe('One short Persian sentence for the user, not the command itself')
+      }),
+      execute: async ({ command, purpose }) => {
+        if (!hooks.requestApproval) {
+          return { ran: false, message: 'اجرای دستور در این جلسه در دسترس نیست.' }
+        }
+        return runUserCommand(command, purpose, {
+          requestApproval: hooks.requestApproval,
+          approvalMode: getExecutableToolApprovalMode(hooks, 'run_command'),
+          abortSignal: hooks.abortSignal
+        })
+      }
+    })
 
   return tools
+}
+
+function getToolApprovalMode(hooks: AgentToolHooks, toolId: SystemToolId): ToolApprovalMode {
+  return hooks.toolApprovals?.[toolId] ?? DEFAULT_TOOL_APPROVALS[toolId]
+}
+
+function toolIsEnabled(hooks: AgentToolHooks, toolId: SystemToolId): boolean {
+  return getToolApprovalMode(hooks, toolId) !== 'blocked'
+}
+
+function getExecutableToolApprovalMode(
+  hooks: AgentToolHooks,
+  toolId: SystemToolId
+): Exclude<ToolApprovalMode, 'blocked'> {
+  const mode = getToolApprovalMode(hooks, toolId)
+  return mode === 'blocked' ? 'smart' : mode
+}
+
+async function requestToolApproval(
+  hooks: AgentToolHooks,
+  toolId: SystemToolId,
+  request: ApprovalRequest
+): Promise<boolean> {
+  if (getToolApprovalMode(hooks, toolId) !== 'confirm') return true
+  return hooks.requestApproval?.(request) ?? false
+}
+
+function approvalDenied(): { approved: false; message: string } {
+  return { approved: false, message: 'کاربر اجازه نداد.' }
+}
+
+function writeFileDescription(mode: ToolApprovalMode): string {
+  const policy =
+    mode === 'auto'
+      ? 'The user configured allowed writes to run without approval.'
+      : mode === 'confirm'
+        ? 'Every allowed write requires user approval.'
+        : 'Ordinary text and code writes run directly; executable and auto-start formats require approval.'
+  return `Create, replace, or append to a UTF-8 text file. Use only when the user asks you to save or change a file. Read an existing file before overwriting it, preserve unrelated content, and prefer create for new files. ${policy} Protected paths and binary files remain blocked.`
+}
+
+function runCommandDescription(mode: ToolApprovalMode): string {
+  const policy =
+    mode === 'auto'
+      ? 'The user configured allowed commands to run without approval, including commands that make changes.'
+      : mode === 'confirm'
+        ? 'Every allowed command requires user approval.'
+        : 'Safe read-only commands run immediately; commands that write, delete, install, or use the network require approval.'
+  return `Run a terminal command on this computer. Prefer dedicated file, web, search, and open tools when they fit. ${policy} Fixed security blocks still apply; never use sudo. Fill purpose with one short spoken Persian sentence describing what you are about to do, without the raw command.`
 }
 
 export function activeAgentToolNames(

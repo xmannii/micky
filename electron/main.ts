@@ -34,6 +34,11 @@ import {
   DEFAULT_FONT_FAMILY,
   DEFAULT_THEME,
   SETTINGS_SNAPSHOT_CHANNEL,
+  TOOL_APPROVAL_PRESETS,
+  isFlyoverInputMode,
+  isSystemToolId,
+  isToolApprovalMode,
+  isToolApprovalPreset,
   toAppearanceSnapshot,
   toSettingsSnapshot,
   type AppTheme
@@ -72,10 +77,15 @@ import { FlyoverService } from './flyover/service'
 import { getFlyoverConversationPreview } from './flyover/context'
 import {
   assistantShortcutAction,
+  flyoverAllowsTyping,
+  flyoverAllowsVoice,
+  inputModeAfterTyping,
   mainWindowFocusAction,
+  resolveFlyoverInputMode,
   shouldInterruptForWakeWordResume,
   shouldShowWakeFlyover
 } from './flyover/activation'
+import type { FlyoverInputMode } from '@/lib/settings'
 import {
   canAcceptFlyoverCompose,
   clampFlyoverDraft,
@@ -134,6 +144,7 @@ let appUpdateService: AppUpdateService | null = null
 let assistantFlyoverActive = false
 let assistantFlyoverMirroring = false
 let assistantShortcutSilent = false
+let assistantFlyoverInputMode: FlyoverInputMode = 'voice'
 let assistantFlyoverComposing = false
 let assistantFlyoverTyped = false
 let assistantFlyoverIdleTimer: NodeJS.Timeout | null = null
@@ -659,6 +670,44 @@ function registerIpc(): void {
     }
     return snapshot
   })
+  ipcMain.handle('settings:set-tool-approval', async (event, toolId: unknown, mode: unknown) => {
+    if (!isTrustedSender(event.sender) || !isSystemToolId(toolId) || !isToolApprovalMode(mode)) {
+      throw new Error('Invalid tool approval setting.')
+    }
+    const current = settingsStore?.get()
+    const settings = await settingsStore?.update({
+      toolApprovals: {
+        ...(current?.toolApprovals ?? TOOL_APPROVAL_PRESETS.balanced),
+        [toolId]: mode
+      }
+    })
+    const snapshot = settings ? toSettingsSnapshot(settings, shortcutError) : null
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(SETTINGS_SNAPSHOT_CHANNEL, snapshot)
+    }
+    return snapshot
+  })
+  ipcMain.handle('settings:set-tool-approval-preset', async (event, preset: unknown) => {
+    if (!isTrustedSender(event.sender) || !isToolApprovalPreset(preset)) {
+      throw new Error('Invalid tool approval preset.')
+    }
+    const settings = await settingsStore?.update({
+      toolApprovals: { ...TOOL_APPROVAL_PRESETS[preset] }
+    })
+    const snapshot = settings ? toSettingsSnapshot(settings, shortcutError) : null
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(SETTINGS_SNAPSHOT_CHANNEL, snapshot)
+    }
+    return snapshot
+  })
+  ipcMain.handle('settings:set-flyover-input-mode', async (event, mode: unknown) => {
+    if (!isTrustedSender(event.sender) || !isFlyoverInputMode(mode)) {
+      throw new Error('Invalid flyover input mode.')
+    }
+    await settingsStore?.update({ flyoverInputMode: mode })
+    emitSettingsSnapshot()
+    return settingsStore ? toSettingsSnapshot(settingsStore.get(), shortcutError) : null
+  })
   ipcMain.handle('settings:set-screen-access', async (event, enabled: unknown) => {
     if (!isTrustedSender(event.sender) || typeof enabled !== 'boolean') {
       throw new Error('Invalid screen access setting.')
@@ -1142,10 +1191,17 @@ function createTray(): void {
   tray.on('click', () => showMainWindow())
 }
 
-function showAssistantFlyover(silent: boolean): void {
+function showAssistantFlyover(silent: boolean, requestedMode?: FlyoverInputMode): void {
+  const configuredMode = settingsStore?.get().flyoverInputMode ?? 'both'
+  const inputMode = silent
+    ? (requestedMode ??
+      resolveFlyoverInputMode(configuredMode, modelRegistry?.hasInstalledModel() === true))
+    : 'voice'
+  const canCompose = silent && flyoverAllowsTyping(inputMode)
   assistantFlyoverActive = true
   assistantFlyoverMirroring = false
   assistantShortcutSilent = silent
+  assistantFlyoverInputMode = inputMode
   assistantFlyoverComposing = false
   assistantFlyoverTyped = false
   clearFlyoverIdleDismiss()
@@ -1155,13 +1211,35 @@ function showAssistantFlyover(silent: boolean): void {
   )
   flyoverService?.show({
     mode: 'assistant',
+    inputMode,
     phase: 'listening',
     title: conversationPreview?.title ?? 'میکی',
-    text: conversationPreview?.text ?? (silent ? 'حرف بزن، یا بنویس…' : 'گوش می‌دم…'),
-    hint: silent ? 'حرف بزن یا بنویس' : 'هر وقت آماده‌ای شروع کن',
-    interactive: silent,
-    canCompose: silent
+    text: conversationPreview?.text ?? flyoverInputPrompt(inputMode, silent),
+    hint: flyoverInputHint(inputMode, silent),
+    interactive: canCompose,
+    canCompose
   })
+}
+
+function flyoverCanCompose(): boolean {
+  return assistantShortcutSilent && flyoverAllowsTyping(assistantFlyoverInputMode)
+}
+
+function flyoverShouldListen(): boolean {
+  if (!assistantFlyoverActive || !assistantShortcutSilent) return true
+  return flyoverAllowsVoice(assistantFlyoverInputMode)
+}
+
+function flyoverInputPrompt(mode: FlyoverInputMode, silent: boolean): string {
+  if (!silent || mode === 'voice') return 'گوش می‌دم…'
+  if (mode === 'typing') return 'پیامت رو بنویس…'
+  return 'حرف بزن، یا بنویس…'
+}
+
+function flyoverInputHint(mode: FlyoverInputMode, silent: boolean): string {
+  if (!silent || mode === 'voice') return 'هر وقت آماده‌ای شروع کن'
+  if (mode === 'typing') return 'برای شروع بنویس'
+  return 'حرف بزن یا بنویس'
 }
 
 // A typed exchange has no spoken reply to wait through, so the answer would vanish
@@ -1189,6 +1267,7 @@ function showMissingAsrModelFlyover(): void {
   assistantFlyoverActive = false
   assistantFlyoverMirroring = false
   assistantShortcutSilent = false
+  assistantFlyoverInputMode = 'voice'
   assistantFlyoverComposing = false
   assistantFlyoverTyped = false
   clearFlyoverIdleDismiss()
@@ -1217,6 +1296,7 @@ function detachAssistantFlyover(dismissedByMainWindow = false): void {
   assistantFlyoverActive = false
   assistantFlyoverMirroring = false
   assistantShortcutSilent = false
+  assistantFlyoverInputMode = 'voice'
   assistantFlyoverComposing = false
   assistantFlyoverTyped = false
   clearFlyoverIdleDismiss()
@@ -1288,16 +1368,21 @@ function handleAssistantShortcut(): void {
     return
   }
   dictationController?.cancel()
-  if (!modelRegistry?.hasInstalledModel()) {
+  const configuredMode = settingsStore?.get().flyoverInputMode ?? 'both'
+  const voiceAvailable = modelRegistry?.hasInstalledModel() === true
+  if (configuredMode === 'voice' && !voiceAvailable) {
     showMissingAsrModelFlyover()
     return
   }
+  const inputMode = resolveFlyoverInputMode(configuredMode, voiceAvailable)
   ttsService?.stop()
   conversation?.onWakeActivated()
-  showAssistantFlyover(true)
-  sendEarcon('listen')
-  wakeWordService?.beginExternalSession()
-  void speechService?.startSession({ preroll: false, mode: 'conversation' })
+  showAssistantFlyover(true, inputMode)
+  if (flyoverAllowsVoice(inputMode)) {
+    sendEarcon('listen')
+    wakeWordService?.beginExternalSession()
+    void speechService?.startSession({ preroll: false, mode: 'conversation' })
+  }
 }
 
 function handleNewChatShortcut(): void {
@@ -1305,20 +1390,26 @@ function handleNewChatShortcut(): void {
   detachAssistantFlyover()
   conversation?.startFresh()
   wakeWordService?.endExternalSession()
-  if (!modelRegistry?.hasInstalledModel()) {
+  const configuredMode = settingsStore?.get().flyoverInputMode ?? 'both'
+  const voiceAvailable = modelRegistry?.hasInstalledModel() === true
+  if (configuredMode === 'voice' && !voiceAvailable) {
     showMissingAsrModelFlyover()
     return
   }
-  showAssistantFlyover(true)
-  sendEarcon('listen')
-  wakeWordService?.beginExternalSession()
-  void speechService?.startSession({ preroll: false, mode: 'conversation' })
+  const inputMode = resolveFlyoverInputMode(configuredMode, voiceAvailable)
+  showAssistantFlyover(true, inputMode)
+  if (flyoverAllowsVoice(inputMode)) {
+    sendEarcon('listen')
+    wakeWordService?.beginExternalSession()
+    void speechService?.startSession({ preroll: false, mode: 'conversation' })
+  }
 }
 
 function startFlyoverCompose(text: string): void {
   const snapshot = flyoverService?.getSnapshot()
   if (
     !snapshot ||
+    !flyoverCanCompose() ||
     !canAcceptFlyoverCompose({
       active: assistantFlyoverActive,
       shortcutSession: assistantShortcutSilent,
@@ -1331,11 +1422,14 @@ function startFlyoverCompose(text: string): void {
   clearFlyoverIdleDismiss()
   if (!assistantFlyoverComposing) {
     assistantFlyoverComposing = true
+    assistantFlyoverInputMode = inputModeAfterTyping()
+    assistantFlyoverTyped = true
     speechService?.cancelSession()
     conversation?.holdListenWindow()
   }
   flyoverService?.update({
     mode: 'assistant',
+    inputMode: assistantFlyoverInputMode,
     phase: 'composing',
     hint: FLYOVER_COMPOSE_HINT,
     detail: null,
@@ -1383,10 +1477,10 @@ function handleAgentStatus(status: AgentStatus): void {
     if (!assistantFlyoverActive) assistantFlyoverMirroring = true
     assistantFlyoverActive = true
     assistantFlyoverComposing = false
-    assistantFlyoverTyped = false
     clearFlyoverIdleDismiss()
     flyoverService?.show({
       mode: 'assistant',
+      inputMode: assistantFlyoverInputMode,
       phase: 'confirm',
       title: 'تأیید لازم است',
       text: turn.confirmText ?? 'این کار رو انجام بدم؟',
@@ -1415,6 +1509,7 @@ function handleAgentStatus(status: AgentStatus): void {
           : 'thinking'
   flyoverService?.reveal({
     mode: 'assistant',
+    inputMode: assistantFlyoverInputMode,
     phase,
     title: 'میکی',
     text: reply.slice(0, 700) || turn.error || agentStatusLabel(turn.phase, turn.toolName),
@@ -1434,22 +1529,35 @@ function handleConversationStatus(status: ConversationStatus): void {
   if (status.mode === 'followup') {
     if (status.followupHeard) return
     const current = flyoverService?.getSnapshot()
-    const compose = assistantShortcutSilent
+    const compose = flyoverCanCompose()
+    const hint =
+      assistantFlyoverInputMode === 'typing'
+        ? 'برای ادامه بنویس'
+        : assistantFlyoverInputMode === 'both'
+          ? 'حرف بزن یا بنویس'
+          : 'ادامه بده…'
     const keepsReply = current?.phase === 'reply' && Boolean(current.text.trim())
     flyoverService?.update(
       keepsReply
         ? {
+            inputMode: assistantFlyoverInputMode,
             phase: 'reply',
             title: 'میکی',
-            hint: compose ? 'حرف بزن یا بنویس' : 'ادامه بده…',
+            hint,
             interactive: compose,
             canCompose: compose,
             canApprove: false
           }
         : {
+            inputMode: assistantFlyoverInputMode,
             phase: 'listening',
             title: 'میکی',
-            text: compose ? 'حرف بزن یا بنویس…' : 'ادامه بده…',
+            text:
+              assistantFlyoverInputMode === 'typing'
+                ? 'ادامه‌ات رو بنویس…'
+                : assistantFlyoverInputMode === 'both'
+                  ? 'حرف بزن یا بنویس…'
+                  : 'ادامه بده…',
             hint: null,
             interactive: compose,
             canCompose: compose,
@@ -1466,6 +1574,7 @@ function handleConversationStatus(status: ConversationStatus): void {
     assistantFlyoverActive = false
     assistantFlyoverMirroring = false
     assistantShortcutSilent = false
+    assistantFlyoverInputMode = 'voice'
     assistantFlyoverComposing = false
     assistantFlyoverTyped = false
     clearFlyoverIdleDismiss()
@@ -1519,7 +1628,7 @@ function startRuntime(): void {
             hint: 'دارم می‌شنوم…',
             detail: null,
             previewImage: null,
-            interactive: assistantShortcutSilent,
+            interactive: flyoverCanCompose(),
             // Once speech wins the turn, give the live transcript the whole copy area.
             canCompose: false,
             canApprove: false
@@ -1646,7 +1755,8 @@ app.whenReady().then(async () => {
     getChats: () => chatStore,
     getWindow: () => mainWindow,
     onStatusChange: handleConversationStatus,
-    shouldUseVoice: () => !assistantShortcutSilent
+    shouldUseVoice: () => !assistantShortcutSilent,
+    shouldStartFollowupListening: flyoverShouldListen
   })
   modelRegistry = new ModelRegistry({
     modelsRoot: join(app.getPath('userData'), 'models'),
@@ -1696,6 +1806,7 @@ app.whenReady().then(async () => {
       assistantFlyoverActive = false
       assistantFlyoverMirroring = false
       assistantShortcutSilent = false
+      assistantFlyoverInputMode = 'voice'
       assistantFlyoverComposing = false
       assistantFlyoverTyped = false
       clearFlyoverIdleDismiss()

@@ -18,9 +18,11 @@ import {
   DEFAULT_ASSISTANT_SHORTCUT,
   DEFAULT_AUDIO_DEVICE_ID,
   DEFAULT_DICTATION_SHORTCUT,
+  DEFAULT_FLYOVER_INPUT_MODE,
   DEFAULT_FONT_FAMILY,
   DEFAULT_THEME,
   DEFAULT_NEW_CHAT_SHORTCUT,
+  DEFAULT_TOOL_APPROVALS,
   DEFAULT_WAKE_WORD_SHORTCUT,
   DEFAULT_VISION_MODEL_ID
 } from '@/lib/settings'
@@ -33,6 +35,7 @@ test('loads defaults when no settings file exists', async () => {
   assert.equal(settings.wakeWordEnabled, true)
   assert.equal(settings.onboardingCompleted, false)
   assert.equal(settings.systemToolsEnabled, true)
+  assert.deepEqual(settings.toolApprovals, DEFAULT_TOOL_APPROVALS)
   assert.equal(settings.screenAccessEnabled, true)
   assert.equal(settings.llm.modelId, DEFAULT_LLM_MODEL_ID)
   assert.equal(settings.llm.providerModelIds.openrouter, DEFAULT_LLM_MODEL_ID)
@@ -46,6 +49,7 @@ test('loads defaults when no settings file exists', async () => {
   assert.equal(settings.newChatShortcut, DEFAULT_NEW_CHAT_SHORTCUT)
   assert.equal(settings.dictationShortcut, DEFAULT_DICTATION_SHORTCUT)
   assert.equal(settings.wakeWordShortcut, DEFAULT_WAKE_WORD_SHORTCUT)
+  assert.equal(settings.flyoverInputMode, DEFAULT_FLYOVER_INPUT_MODE)
   assert.equal(settings.dictationAiCleanup, true)
   assert.equal(settings.dictationAutoPaste, true)
   assert.equal(settings.launchAtLogin, false)
@@ -75,7 +79,13 @@ test('normalizes invalid persisted values on load', async () => {
         reasoningEffort: 'extreme'
       },
       tts: { providerId: 'bad', geminiVoice: 'bad', elevenLabsVoiceId: 4 },
-      webSearch: { enabledProviders: ['exa', 'bad', 'exa', 'google'] }
+      webSearch: { enabledProviders: ['exa', 'bad', 'exa', 'google'] },
+      toolApprovals: {
+        read_file: 'confirm',
+        write_file: 'anything',
+        run_command: 'blocked'
+      },
+      flyoverInputMode: 'video'
     }),
     'utf8'
   )
@@ -91,6 +101,11 @@ test('normalizes invalid persisted values on load', async () => {
   assert.equal(settings.llm.reasoningEffort, DEFAULT_LLM_REASONING_EFFORT)
   assert.deepEqual(settings.tts, DEFAULT_TTS_SETTINGS)
   assert.deepEqual(settings.webSearch.enabledProviders, ['exa', 'google'])
+  assert.equal(settings.toolApprovals.read_file, 'confirm')
+  assert.equal(settings.toolApprovals.write_file, DEFAULT_TOOL_APPROVALS.write_file)
+  assert.equal(settings.toolApprovals.run_command, 'blocked')
+  assert.equal(settings.toolApprovals.open_app, DEFAULT_TOOL_APPROVALS.open_app)
+  assert.equal(settings.flyoverInputMode, DEFAULT_FLYOVER_INPUT_MODE)
   assert.equal(settings.assistantShortcut, DEFAULT_ASSISTANT_SHORTCUT)
   assert.equal(settings.newChatShortcut, DEFAULT_NEW_CHAT_SHORTCUT)
   assert.equal(settings.wakeWordShortcut, DEFAULT_WAKE_WORD_SHORTCUT)
@@ -186,15 +201,18 @@ test('persists a patch to disk', async () => {
   await store.update({
     wakeWordEnabled: false,
     onboardingCompleted: true,
+    flyoverInputMode: 'typing',
     tts: { providerId: 'elevenlabs', elevenLabsVoiceId: 'voice-1' }
   })
   const raw = JSON.parse(await readFile(join(dir, 'settings.json'), 'utf8')) as {
     wakeWordEnabled: boolean
     onboardingCompleted: boolean
+    flyoverInputMode: string
     tts: { providerId: string; elevenLabsVoiceId: string }
   }
   assert.equal(raw.wakeWordEnabled, false)
   assert.equal(raw.onboardingCompleted, true)
+  assert.equal(raw.flyoverInputMode, 'typing')
   assert.deepEqual(raw.tts, {
     ...DEFAULT_TTS_SETTINGS,
     providerId: 'elevenlabs',

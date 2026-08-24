@@ -8,7 +8,15 @@ import type {
   LlmSnapshot,
   OpenAiCompatibleProviderId
 } from '@/lib/llm'
-import type { AppTheme, ScreenAccessStatus, SettingsSnapshot } from '@/lib/settings'
+import type {
+  AppTheme,
+  FlyoverInputMode,
+  ScreenAccessStatus,
+  SettingsSnapshot,
+  SystemToolId,
+  ToolApprovalMode,
+  ToolApprovalPreset
+} from '@/lib/settings'
 import type { SoulFileId, SoulSnapshot, UserProfileDraft } from '@/lib/soul'
 import type { WakeWordActivation, WakeWordStatus } from '@/lib/wake-word'
 import type { TtsPlayback, TtsProviderId, TtsSnapshot, TtsStatus } from '@/lib/tts'
@@ -92,6 +100,9 @@ export type MickyAPI = {
   settings: {
     getSnapshot: () => Promise<SettingsSnapshot>
     setSystemToolsEnabled: (enabled: boolean) => Promise<SettingsSnapshot>
+    setToolApproval: (toolId: SystemToolId, mode: ToolApprovalMode) => Promise<SettingsSnapshot>
+    setToolApprovalPreset: (preset: ToolApprovalPreset) => Promise<SettingsSnapshot>
+    setFlyoverInputMode: (mode: FlyoverInputMode) => Promise<SettingsSnapshot>
     setScreenAccessEnabled: (enabled: boolean) => Promise<SettingsSnapshot>
     getScreenAccessStatus: () => Promise<ScreenAccessStatus>
     openScreenAccessSettings: () => Promise<void>

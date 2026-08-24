@@ -112,14 +112,17 @@ function FlyoverCopy({ text, animate }: { text: string; animate: boolean }): Rea
 
 function FlyoverCompose({
   draft,
+  inputMode,
   onDraftChange,
   onSubmit
 }: {
   draft: string
+  inputMode: FlyoverSnapshot['inputMode']
   onDraftChange: (text: string) => void
   onSubmit: () => void
 }): React.JSX.Element {
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const typingOnly = inputMode === 'typing'
 
   useEffect(() => {
     const focus = (): void => inputRef.current?.focus()
@@ -144,9 +147,9 @@ function FlyoverCompose({
             ? 'text-muted-foreground'
             : 'bg-foreground/10 text-foreground ring-1 ring-foreground/10'
         )}
-        title={draft.length > 0 ? 'در حال نوشتن' : 'میکروفن فعاله'}
+        title={draft.length > 0 || typingOnly ? 'در حال نوشتن' : 'میکروفن فعاله'}
       >
-        {draft.length > 0 ? (
+        {draft.length > 0 || typingOnly ? (
           <Keyboard className="size-3.5" aria-hidden="true" />
         ) : (
           <Mic className="size-3.5" aria-hidden="true" />
@@ -158,8 +161,8 @@ function FlyoverCompose({
         value={draft}
         rows={1}
         dir={detectTextDirection(draft)}
-        placeholder="بنویس یا حرف بزن…"
-        aria-label="پیام برای میکی؛ بنویس یا حرف بزن"
+        placeholder={typingOnly ? 'بنویس…' : 'بنویس یا حرف بزن…'}
+        aria-label={typingOnly ? 'پیام برای میکی؛ بنویس' : 'پیام برای میکی؛ بنویس یا حرف بزن'}
         autoFocus
         onChange={(event) => onDraftChange(event.target.value)}
         onKeyDown={(event) => {
@@ -321,6 +324,7 @@ export function FlyoverApp(): React.JSX.Element {
               {showComposer ? (
                 <FlyoverCompose
                   draft={draft}
+                  inputMode={snapshot.inputMode}
                   onDraftChange={(text) => {
                     setDraft(text)
                     if (composing) window.flyoverApi.updateCompose(text)

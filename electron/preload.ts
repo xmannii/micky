@@ -164,6 +164,12 @@ const api: MickyAPI = {
     getSnapshot: (): Promise<SettingsSnapshot> => ipcRenderer.invoke('settings:get-snapshot'),
     setSystemToolsEnabled: (enabled: boolean): Promise<SettingsSnapshot> =>
       ipcRenderer.invoke('settings:set-system-tools', enabled),
+    setToolApproval: (toolId, mode): Promise<SettingsSnapshot> =>
+      ipcRenderer.invoke('settings:set-tool-approval', toolId, mode),
+    setToolApprovalPreset: (preset): Promise<SettingsSnapshot> =>
+      ipcRenderer.invoke('settings:set-tool-approval-preset', preset),
+    setFlyoverInputMode: (mode): Promise<SettingsSnapshot> =>
+      ipcRenderer.invoke('settings:set-flyover-input-mode', mode),
     setScreenAccessEnabled: (enabled: boolean): Promise<SettingsSnapshot> =>
       ipcRenderer.invoke('settings:set-screen-access', enabled),
     getScreenAccessStatus: () => ipcRenderer.invoke('settings:get-screen-access-status'),

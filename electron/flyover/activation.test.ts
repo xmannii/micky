@@ -2,7 +2,11 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   assistantShortcutAction,
+  flyoverAllowsTyping,
+  flyoverAllowsVoice,
+  inputModeAfterTyping,
   mainWindowFocusAction,
+  resolveFlyoverInputMode,
   shouldInterruptForWakeWordResume,
   shouldShowWakeFlyover
 } from './activation'
@@ -27,6 +31,18 @@ test('wake-word mute does not interrupt an ongoing conversation flow', () => {
   assert.equal(shouldInterruptForWakeWordResume('agent'), false)
   assert.equal(shouldInterruptForWakeWordResume('confirm'), false)
   assert.equal(shouldInterruptForWakeWordResume('followup'), false)
+})
+
+test('resolves flyover input capabilities and falls back to typing without ASR', () => {
+  assert.equal(flyoverAllowsVoice('voice'), true)
+  assert.equal(flyoverAllowsTyping('voice'), false)
+  assert.equal(flyoverAllowsVoice('typing'), false)
+  assert.equal(flyoverAllowsTyping('typing'), true)
+  assert.equal(flyoverAllowsVoice('both'), true)
+  assert.equal(flyoverAllowsTyping('both'), true)
+  assert.equal(resolveFlyoverInputMode('both', false), 'typing')
+  assert.equal(resolveFlyoverInputMode('voice', false), 'voice')
+  assert.equal(inputModeAfterTyping(), 'typing')
 })
 
 test('reveals a main-window task instead of starting a new shortcut session', () => {

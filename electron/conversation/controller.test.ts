@@ -15,7 +15,8 @@ function createHarness(
     }
   ) => Promise<'completed' | 'ended' | 'aborted' | 'skipped'> = async () => 'completed',
   shouldUseVoice: () => boolean = () => true,
-  chats: Record<string, unknown> | null = null
+  chats: Record<string, unknown> | null = null,
+  shouldStartFollowupListening: () => boolean = () => true
 ) {
   const speech = {
     started: 0,
@@ -92,7 +93,8 @@ function createHarness(
     getWakeWord: () => wake,
     getChats: () => chats,
     getWindow: () => null,
-    shouldUseVoice
+    shouldUseVoice,
+    shouldStartFollowupListening
   } as never)
 
   return { controller, speech, wake, agent, tts, chats }
@@ -122,6 +124,22 @@ test('opens a longer followup listen window after the agent finishes', async () 
   assert.ok((status.followupUntil ?? 0) - Date.now() > FOLLOWUP_WINDOW_MS - 250)
   assert.equal(harness.wake.capturePaused, 1)
   assert.equal(harness.wake.externalStarted, 1)
+})
+
+test('opens a text followup without starting microphone capture', async () => {
+  const harness = createHarness(
+    async () => 'completed',
+    () => false,
+    null,
+    () => false
+  )
+
+  harness.controller.onFinalTranscript('سلام')
+  await waitForMode(harness, 'followup')
+
+  assert.equal(harness.speech.started, 0)
+  assert.equal(harness.wake.externalStarted, 0)
+  assert.equal(harness.controller.getStatus().mode, 'followup')
 })
 
 test('releases microphone capture for the full agent turn', async () => {

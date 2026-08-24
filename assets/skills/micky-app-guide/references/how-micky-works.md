@@ -15,7 +15,7 @@ The choices are independent. For example, listening can stay local while the bra
 ## Starting and continuing a conversation
 
 - Say `هی میکی`, tap the orb, or press the `دستیار میکی` global shortcut.
-- After a completed answer, Micky listens for a follow-up for about 12 seconds. The same conversation and model context continue.
+- After a completed spoken answer, Micky listens for a follow-up for about 12 seconds. A typing flyover keeps a text follow-up open without starting the microphone. The same conversation and model context continue.
 - Use the `گفتگوی تازه` shortcut when old context is no longer useful.
 - The current chat survives app reloads and normally rolls over after 30 minutes of inactivity. A chat from the archive can be resumed with recent turns restored to context.
 - Speech recognition can omit punctuation, split words, or hear English words phonetically. The user should simply repeat or correct the request by voice; do not tell them to type a corrected transcript.
@@ -23,6 +23,8 @@ The choices are independent. For example, listening can stay local while the bra
 ## Dictation versus assistant
 
 The `دیکته در برنامه فعال` shortcut transcribes speech into the currently focused application. Optional AI cleanup can improve the text, and automatic paste can insert it. This is separate from asking the assistant to reason or use tools. These switches live in `تنظیمات → میانبرها`.
+
+The assistant flyover input can also be configured in `تنظیمات → میانبرها` as voice only, typing only, or both. If the user begins typing in `both`, that flyover session stays in typing mode for later turns and does not reopen ASR.
 
 ## Agent modules
 

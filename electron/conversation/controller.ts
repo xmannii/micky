@@ -28,6 +28,7 @@ type ConversationControllerOptions = {
   getWindow: () => BrowserWindow | null
   onStatusChange?: (status: ConversationStatus) => void
   shouldUseVoice?: () => boolean
+  shouldStartFollowupListening?: () => boolean
 }
 
 export class ConversationController {
@@ -303,6 +304,10 @@ export class ConversationController {
       followupUntil: this.#followupDeadline,
       followupHeard: false
     })
+    if (this.options.shouldStartFollowupListening?.() === false) {
+      if (!this.#status.followupHeard) this.#armFollowupTimer()
+      return
+    }
     this.options.getWakeWord()?.beginExternalSession()
     await this.options.getSpeech()?.startSession({ preroll: false })
     if (generation !== this.#generation || this.#mode !== 'followup') return

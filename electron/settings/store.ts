@@ -21,11 +21,17 @@ import {
   DEFAULT_DICTATION_SHORTCUT,
   DEFAULT_AUDIO_DEVICE_ID,
   DEFAULT_FONT_FAMILY,
+  DEFAULT_FLYOVER_INPUT_MODE,
+  DEFAULT_TOOL_APPROVALS,
   DEFAULT_THEME,
   DEFAULT_WAKE_WORD_SHORTCUT,
   DEFAULT_VISION_MODEL_ID,
+  SYSTEM_TOOL_IDS,
+  isToolApprovalMode,
+  isFlyoverInputMode,
   type AppSettings,
-  type AppSettingsPatch
+  type AppSettingsPatch,
+  type ToolApprovalSettings
 } from '@/lib/settings'
 import {
   DEFAULT_TTS_SETTINGS,
@@ -54,11 +60,13 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   webSearch: { ...DEFAULT_WEB_SEARCH_SETTINGS, enabledProviders: [] },
   onboardingCompleted: false,
   systemToolsEnabled: true,
+  toolApprovals: { ...DEFAULT_TOOL_APPROVALS },
   screenAccessEnabled: true,
   assistantShortcut: DEFAULT_ASSISTANT_SHORTCUT,
   newChatShortcut: DEFAULT_NEW_CHAT_SHORTCUT,
   dictationShortcut: DEFAULT_DICTATION_SHORTCUT,
   wakeWordShortcut: DEFAULT_WAKE_WORD_SHORTCUT,
+  flyoverInputMode: DEFAULT_FLYOVER_INPUT_MODE,
   dictationAiCleanup: true,
   dictationAutoPaste: true,
   launchAtLogin: false,
@@ -136,6 +144,7 @@ function cloneSettings(settings: AppSettings): AppSettings {
       enabledProviders: [...settings.webSearch.enabledProviders]
     },
     systemToolsEnabled: settings.systemToolsEnabled !== false,
+    toolApprovals: { ...settings.toolApprovals },
     screenAccessEnabled: settings.screenAccessEnabled !== false,
     disabledSkillIds: [...settings.disabledSkillIds]
   }
@@ -260,11 +269,15 @@ function normalizeSettings(value: unknown): AppSettings {
     wakeWordEnabled: record.wakeWordEnabled !== false,
     onboardingCompleted: record.onboardingCompleted === true,
     systemToolsEnabled: record.systemToolsEnabled !== false,
+    toolApprovals: normalizeToolApprovals(record.toolApprovals),
     screenAccessEnabled: record.screenAccessEnabled !== false,
     assistantShortcut: readShortcut(record.assistantShortcut, DEFAULT_ASSISTANT_SHORTCUT),
     newChatShortcut: readShortcut(record.newChatShortcut, DEFAULT_NEW_CHAT_SHORTCUT),
     dictationShortcut: readShortcut(record.dictationShortcut, DEFAULT_DICTATION_SHORTCUT),
     wakeWordShortcut: readShortcut(record.wakeWordShortcut, DEFAULT_WAKE_WORD_SHORTCUT),
+    flyoverInputMode: isFlyoverInputMode(record.flyoverInputMode)
+      ? record.flyoverInputMode
+      : DEFAULT_FLYOVER_INPUT_MODE,
     dictationAiCleanup: record.dictationAiCleanup !== false,
     dictationAutoPaste: record.dictationAutoPaste !== false,
     launchAtLogin: record.launchAtLogin === true,
@@ -298,6 +311,16 @@ function normalizeSettings(value: unknown): AppSettings {
     tts: normalizeTtsSettings(record.tts),
     webSearch: normalizeWebSearchSettings(record.webSearch)
   }
+}
+
+function normalizeToolApprovals(value: unknown): ToolApprovalSettings {
+  const record = isRecord(value) ? value : {}
+  return Object.fromEntries(
+    SYSTEM_TOOL_IDS.map((toolId) => [
+      toolId,
+      isToolApprovalMode(record[toolId]) ? record[toolId] : DEFAULT_TOOL_APPROVALS[toolId]
+    ])
+  ) as ToolApprovalSettings
 }
 
 function readString(value: unknown, fallback: string, max: number): string {

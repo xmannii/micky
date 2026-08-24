@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 import { activeAgentToolNames, createAgentTools } from './tools'
+import { TOOL_APPROVAL_PRESETS } from '@/lib/settings'
 
 type ExecutableTool = {
   execute: (input: Record<string, unknown>) => Promise<Record<string, unknown>>
@@ -125,4 +126,107 @@ test('writes ordinary text directly but asks before suspicious formats', async (
   })
   assert.equal(approvals.length, 1)
   assert.equal(approvals[0]?.endsWith('/install.sh'), true)
+})
+
+test('removes individually blocked tools from the model tool set', () => {
+  const tools = createAgentTools({} as never, {
+    systemToolsEnabled: true,
+    toolApprovals: {
+      ...TOOL_APPROVAL_PRESETS.balanced,
+      open_app: 'blocked',
+      run_command: 'blocked'
+    }
+  })
+
+  assert.equal('read_file' in tools, true)
+  assert.equal('open_app' in tools, false)
+  assert.equal('run_command' in tools, false)
+})
+
+test('strict mode asks before an otherwise automatic file read', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'micky-tool-read-'))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const filePath = join(directory, 'notes.txt')
+  await writeFile(filePath, 'private notes', 'utf8')
+  const approvals: string[] = []
+  const tools = createAgentTools({} as never, {
+    systemToolsEnabled: true,
+    toolApprovals: TOOL_APPROVAL_PRESETS.strict,
+    requestApproval: async (request) => {
+      approvals.push(request.toolName ?? '')
+      return false
+    }
+  })
+
+  const result = await executable(tools.read_file).execute({ path: filePath })
+
+  assert.deepEqual(result, { approved: false, message: 'کاربر اجازه نداد.' })
+  assert.deepEqual(approvals, ['read_file'])
+})
+
+test('yolo mode writes sensitive formats without asking while retaining path guards', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'micky-tool-yolo-'))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  let approvalRequests = 0
+  const tools = createAgentTools({} as never, {
+    systemToolsEnabled: true,
+    toolApprovals: TOOL_APPROVAL_PRESETS.yolo,
+    requestApproval: async () => {
+      approvalRequests += 1
+      return false
+    }
+  })
+  const scriptPath = join(directory, 'local-script.sh')
+
+  const result = await executable(tools.write_file).execute({
+    path: scriptPath,
+    content: '#!/bin/sh\necho safe-test\n',
+    mode: 'create',
+    purpose: 'اسکریپت را بساز.'
+  })
+
+  assert.equal(result.written, true)
+  assert.equal(approvalRequests, 0)
+  assert.equal(await readFile(scriptPath, 'utf8'), '#!/bin/sh\necho safe-test\n')
+})
+
+test('yolo mode runs an allowed changing-tier command without asking', async () => {
+  let approvalRequests = 0
+  const tools = createAgentTools({} as never, {
+    systemToolsEnabled: true,
+    toolApprovals: TOOL_APPROVAL_PRESETS.yolo,
+    requestApproval: async () => {
+      approvalRequests += 1
+      return false
+    }
+  })
+
+  const result = await executable(tools.run_command).execute({
+    command: '/usr/bin/printf yolo',
+    purpose: 'یک خروجی آزمایشی می‌سازم.'
+  })
+
+  assert.equal(result.ran, true)
+  assert.equal(result.stdout, 'yolo')
+  assert.equal(approvalRequests, 0)
+})
+
+test('strict mode asks even before a safe read-only command', async () => {
+  let approvalRequests = 0
+  const tools = createAgentTools({} as never, {
+    systemToolsEnabled: true,
+    toolApprovals: TOOL_APPROVAL_PRESETS.strict,
+    requestApproval: async () => {
+      approvalRequests += 1
+      return false
+    }
+  })
+
+  const result = await executable(tools.run_command).execute({
+    command: 'echo safe',
+    purpose: 'یک خروجی آزمایشی می‌سازم.'
+  })
+
+  assert.deepEqual(result, { ran: false, approved: false, message: 'کاربر اجازه نداد.' })
+  assert.equal(approvalRequests, 1)
 })

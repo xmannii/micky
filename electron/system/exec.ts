@@ -8,6 +8,7 @@ import {
   type PathGuardOptions
 } from './paths'
 import { COMMAND_TIMEOUT_MS, isSandboxAvailable, runArgv, type ExecResult } from './sandbox'
+import type { ToolApprovalMode } from '@/lib/settings'
 
 export type ApprovalRequest = {
   purpose: string
@@ -33,6 +34,7 @@ export async function runUserCommand(
   purpose: string,
   options: {
     requestApproval: (request: ApprovalRequest) => Promise<boolean>
+    approvalMode?: Exclude<ToolApprovalMode, 'blocked'>
     abortSignal?: AbortSignal
     path?: PathGuardOptions
   }
@@ -46,14 +48,26 @@ export async function runUserCommand(
     }
   }
 
-  if (classified.tier === 'confirm') {
+  const approvalMode = options.approvalMode ?? 'smart'
+  const sandboxAvailable = isSandboxAvailable()
+  const needsApproval =
+    approvalMode === 'confirm' ||
+    (approvalMode === 'smart' &&
+      (classified.tier === 'confirm' || (classified.tier === 'auto' && !sandboxAvailable)))
+
+  if (needsApproval) {
     const approved = await options.requestApproval({
       purpose: purpose.trim() || 'می‌خوام یه دستور روی مک اجرا کنم.',
-      command
+      command,
+      toolName: 'run_command',
+      detail: command
     })
     if (!approved) {
       return { ran: false, approved: false, message: 'کاربر اجازه نداد.' }
     }
+  }
+
+  if (classified.tier === 'confirm' || !sandboxAvailable) {
     return finish(
       await runArgv(classified.argv ?? ['/bin/bash', '-lc', command], {
         sandboxed: false,
@@ -65,20 +79,6 @@ export async function runUserCommand(
 
   if (!classified.argv) {
     return { ran: false, blocked: true, message: 'این دستور قابل اجرا نیست.' }
-  }
-  if (!isSandboxAvailable()) {
-    const approved = await options.requestApproval({
-      purpose: purpose.trim() || 'می‌خوام یه دستور روی مک اجرا کنم.',
-      command
-    })
-    if (!approved) return { ran: false, approved: false, message: 'کاربر اجازه نداد.' }
-    return finish(
-      await runArgv(classified.argv, {
-        sandboxed: false,
-        abortSignal: options.abortSignal,
-        cwd: options.path?.home ?? homedir()
-      })
-    )
   }
 
   return finish(
