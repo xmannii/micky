@@ -36,6 +36,10 @@ test('denies Linux confidential and browser directories', async () => {
   await writeFile(join(home, '.local', 'share', 'keyrings', 'login.keyring'), 'secret', 'utf8')
   await mkdir(join(home, '.mozilla', 'firefox'), { recursive: true })
   await writeFile(join(home, '.mozilla', 'firefox', 'profiles.ini'), 'secret', 'utf8')
+  await mkdir(join(home, 'snap', 'firefox', 'common', '.mozilla'), { recursive: true })
+  await writeFile(join(home, 'snap', 'firefox', 'common', '.mozilla', 'cookies'), 'secret', 'utf8')
+  await mkdir(join(home, '.var', 'app', 'org.mozilla.firefox'), { recursive: true })
+  await writeFile(join(home, '.var', 'app', 'org.mozilla.firefox', 'cookies'), 'secret', 'utf8')
 
   await assert.rejects(
     () => resolveSafePath('~/.config/google-chrome/Default/Cookies', { home }),
@@ -47,6 +51,14 @@ test('denies Linux confidential and browser directories', async () => {
   )
   await assert.rejects(
     () => resolveSafePath('~/.mozilla/firefox/profiles.ini', { home }),
+    PathDeniedError
+  )
+  await assert.rejects(
+    () => resolveSafePath('~/snap/firefox/common/.mozilla/cookies', { home }),
+    PathDeniedError
+  )
+  await assert.rejects(
+    () => resolveSafePath('~/.var/app/org.mozilla.firefox/cookies', { home }),
     PathDeniedError
   )
 })

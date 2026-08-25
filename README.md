@@ -107,8 +107,8 @@ Ordinary reads and text-file edits inside allowed locations can run directly. Ex
 
 Get the latest installer from [GitHub Releases](https://github.com/xmannii/micky/releases/latest):
 
-- **Linux x64 (Ubuntu / Debian):** `micky-<version>-amd64.deb`
-- **Linux x64 (Universal AppImage):** `micky-<version>-x64.AppImage`
+- **Linux x64 (Ubuntu / Debian):** `micky-<version>-x64.deb`
+- **Linux x64 (portable AppImage):** `micky-<version>-x64.AppImage`
 - **macOS Apple Silicon:** `micky-<version>-arm64.dmg`
 - **Windows x64:** `micky-<version>-x64-setup.exe`
 
@@ -116,7 +116,7 @@ Get the latest installer from [GitHub Releases](https://github.com/xmannii/micky
 
 **Using the `.deb` package (Recommended):**
 ```bash
-sudo apt install ./micky-<version>-amd64.deb
+sudo apt install ./micky-<version>-x64.deb
 ```
 
 **Using the portable `.AppImage`:**

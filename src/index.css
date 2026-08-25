@@ -257,6 +257,10 @@
     border-left-color: var(--grey-700);
   }
 
+  [data-platform='linux'] .flyover-surface {
+    background: color-mix(in srgb, var(--grey-900) 95%, transparent);
+  }
+
   [data-platform='linux'].light .home-status,
   [data-platform='linux'] .light .home-status {
     background: color-mix(in srgb, var(--grey-800) 40%, transparent);

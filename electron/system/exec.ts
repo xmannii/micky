@@ -108,7 +108,7 @@ export async function openUserTarget(
     if (!/^https?:\/\//i.test(trimmed) && !/^mailto:/i.test(trimmed)) {
       return { opened: false, message: 'فقط لینک‌های معمولی باز می‌شوند.' }
     }
-    const opener = process.platform === 'darwin' ? '/usr/bin/open' : 'xdg-open'
+    const opener = process.platform === 'darwin' ? '/usr/bin/open' : LINUX_OPENER
     const result = await runArgv([opener, trimmed], {
       sandboxed: false,
       timeoutMs: 8_000
@@ -119,7 +119,7 @@ export async function openUserTarget(
   if (looksLikePath(trimmed)) {
     try {
       const path = await resolveSafePath(trimmed, options)
-      const opener = process.platform === 'darwin' ? '/usr/bin/open' : 'xdg-open'
+      const opener = process.platform === 'darwin' ? '/usr/bin/open' : LINUX_OPENER
       const result = await runArgv([opener, path], {
         sandboxed: false,
         timeoutMs: 8_000
@@ -147,27 +147,32 @@ export async function openUserTarget(
       : { opened: false, message: result.stderr || 'برنامه پیدا نشد.' }
   }
 
-  const gtkResult = await runArgv(['gtk-launch', trimmed], {
+  const launchId = linuxAppLaunchId(trimmed)
+  if (!launchId) {
+    return { opened: false, message: 'اسم برنامه نامعتبر است.' }
+  }
+
+  const gtkResult = await runArgv([LINUX_LAUNCHER, launchId], {
     sandboxed: false,
     timeoutMs: 8_000
   })
-  if (gtkResult.ok) return { opened: true }
+  return gtkResult.ok
+    ? { opened: true }
+    : { opened: false, message: gtkResult.stderr || 'برنامه پیدا نشد.' }
+}
 
-  const whichResult = await runArgv(['which', trimmed], {
-    sandboxed: false,
-    timeoutMs: 4_000
-  })
-  if (whichResult.ok && whichResult.stdout.trim()) {
-    const appResult = await runArgv([whichResult.stdout.trim()], {
-      sandboxed: false,
-      timeoutMs: 8_000
-    })
-    return appResult.ok || appResult.exitCode === 0
-      ? { opened: true }
-      : { opened: false, message: appResult.stderr || 'برنامه اجرا نشد.' }
+const LINUX_OPENER = '/usr/bin/xdg-open'
+const LINUX_LAUNCHER = '/usr/bin/gtk-launch'
+
+export function linuxAppLaunchId(target: string): string | null {
+  const trimmed = target.trim()
+  if (!trimmed || trimmed.startsWith('-') || trimmed.includes('/') || trimmed.includes('\\')) {
+    return null
   }
-
-  return { opened: false, message: gtkResult.stderr || 'برنامه پیدا نشد.' }
+  if (/[\n\r;|&$`<>]/.test(trimmed)) return null
+  const desktopId = trimmed.replace(/\.desktop$/i, '')
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(desktopId)) return null
+  return desktopId
 }
 
 function finish(result: ExecResult): RunCommandResult {

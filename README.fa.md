@@ -109,7 +109,7 @@
 
 آخرین فایل نصب را از [GitHub Releases](https://github.com/xmannii/micky/releases/latest) بگیر:
 
-- **لینوکس x64 (اوبونتو و دبیان):** `micky-<version>-amd64.deb`
+- **لینوکس x64 (اوبونتو و دبیان):** `micky-<version>-x64.deb`
 - **لینوکس x64 (فایل قابل حمل AppImage):** `micky-<version>-x64.AppImage`
 - **macOS برای Apple Silicon:** `micky-<version>-arm64.dmg`
 - **Windows x64:** `micky-<version>-x64-setup.exe`
@@ -118,7 +118,7 @@
 
 **با استفاده از بسته `.deb` (پیشنهادی):**
 ```bash
-sudo apt install ./micky-<version>-amd64.deb
+sudo apt install ./micky-<version>-x64.deb
 ```
 
 **با استفاده از `.AppImage`:**

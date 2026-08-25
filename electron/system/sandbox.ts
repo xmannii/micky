@@ -67,10 +67,7 @@ export async function runArgv(
   const child = spawn(command[0]!, command.slice(1), {
     cwd: options.cwd ?? homedir(),
     env: {
-      PATH:
-        process.platform === 'darwin'
-          ? MAC_DEFAULT_PATH
-          : process.env.PATH || LINUX_DEFAULT_PATH,
+      PATH: process.platform === 'darwin' ? MAC_DEFAULT_PATH : LINUX_DEFAULT_PATH,
       HOME: homedir(),
       USER: process.env.USER ?? '',
       LANG: process.env.LANG ?? 'en_US.UTF-8',

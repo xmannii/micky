@@ -22,13 +22,24 @@ const SECRET_HOME_PREFIXES = [
   join('Library', 'Application Support', 'Chromium'),
   join('Library', 'Application Support', 'Microsoft Edge'),
   join('.local', 'share', 'keyrings'),
+  join('.local', 'share', 'kwalletd'),
   join('.config', 'google-chrome'),
   join('.config', 'chromium'),
   join('.config', 'BraveSoftware'),
   join('.config', 'microsoft-edge'),
   join('.mozilla', 'firefox'),
   '.mozilla',
-  '.thunderbird'
+  '.thunderbird',
+  join('snap', 'firefox'),
+  join('snap', 'chromium'),
+  join('snap', 'brave'),
+  join('snap', 'thunderbird'),
+  join('.var', 'app', 'org.mozilla.firefox'),
+  join('.var', 'app', 'org.mozilla.thunderbird'),
+  join('.var', 'app', 'org.chromium.Chromium'),
+  join('.var', 'app', 'com.google.Chrome'),
+  join('.var', 'app', 'com.brave.Browser'),
+  join('.var', 'app', 'com.microsoft.Edge')
 ]
 
 const SECRET_BASENAME =
