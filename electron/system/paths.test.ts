@@ -28,6 +28,29 @@ test('denies ssh keys and env files', async () => {
   await assert.rejects(() => resolveSafePath('~/notes_history', { home }), PathDeniedError)
 })
 
+test('denies Linux confidential and browser directories', async () => {
+  const home = await fakeHome()
+  await mkdir(join(home, '.config', 'google-chrome', 'Default'), { recursive: true })
+  await writeFile(join(home, '.config', 'google-chrome', 'Default', 'Cookies'), 'secret', 'utf8')
+  await mkdir(join(home, '.local', 'share', 'keyrings'), { recursive: true })
+  await writeFile(join(home, '.local', 'share', 'keyrings', 'login.keyring'), 'secret', 'utf8')
+  await mkdir(join(home, '.mozilla', 'firefox'), { recursive: true })
+  await writeFile(join(home, '.mozilla', 'firefox', 'profiles.ini'), 'secret', 'utf8')
+
+  await assert.rejects(
+    () => resolveSafePath('~/.config/google-chrome/Default/Cookies', { home }),
+    PathDeniedError
+  )
+  await assert.rejects(
+    () => resolveSafePath('~/.local/share/keyrings/login.keyring', { home }),
+    PathDeniedError
+  )
+  await assert.rejects(
+    () => resolveSafePath('~/.mozilla/firefox/profiles.ini', { home }),
+    PathDeniedError
+  )
+})
+
 test('denies traversal into secret directories', async () => {
   const home = await fakeHome()
   await mkdir(join(home, '.ssh'), { recursive: true })

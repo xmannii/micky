@@ -11,6 +11,7 @@
 
 [![Release](https://img.shields.io/github/v/release/xmannii/micky?style=flat-square)](https://github.com/xmannii/micky/releases/latest)
 [![CI](https://img.shields.io/github/actions/workflow/status/xmannii/micky/ci.yml?branch=main&style=flat-square&label=tests)](https://github.com/xmannii/micky/actions/workflows/ci.yml)
+[![Linux](https://img.shields.io/badge/Linux-Ubuntu%20|%20Debian-E95420?style=flat-square&logo=ubuntu)](https://github.com/xmannii/micky/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-111111?style=flat-square&logo=apple)](https://github.com/xmannii/micky/releases/latest)
 [![Windows](https://img.shields.io/badge/Windows-x64-0078D4?style=flat-square&logo=windows11)](https://github.com/xmannii/micky/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-7c3aed?style=flat-square)](#مجوز)
@@ -108,8 +109,25 @@
 
 آخرین فایل نصب را از [GitHub Releases](https://github.com/xmannii/micky/releases/latest) بگیر:
 
+- **لینوکس x64 (اوبونتو و دبیان):** `micky-<version>-amd64.deb`
+- **لینوکس x64 (فایل قابل حمل AppImage):** `micky-<version>-x64.AppImage`
 - **macOS برای Apple Silicon:** `micky-<version>-arm64.dmg`
 - **Windows x64:** `micky-<version>-x64-setup.exe`
+
+### نصب روی لینوکس (Ubuntu / Debian)
+
+**با استفاده از بسته `.deb` (پیشنهادی):**
+```bash
+sudo apt install ./micky-<version>-amd64.deb
+```
+
+**با استفاده از `.AppImage`:**
+```bash
+chmod +x micky-<version>-x64.AppImage
+./micky-<version>-x64.AppImage
+```
+
+*نکته:* نگهداری امن کلیدها از GNOME Keyring یا KWallet استفاده می‌کند. برای چسباندن خودکار متن دیکته در برنامه‌ها روی نشست X11، بسته `xdotool` پیشنهاد می‌شود (`sudo apt install xdotool`).
 
 نسخه‌های فعلی امضای دیجیتال ندارند و نسخه macOS هم notarize نشده است. ممکن است Gatekeeper یا SmartScreen هشدار نشان بدهد. میکی را فقط از همین مخزن دانلود کن یا خودت از کد منبع بساز.
 

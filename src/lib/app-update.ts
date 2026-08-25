@@ -64,8 +64,17 @@ export function selectReleaseAsset(
   platform: string,
   arch: string
 ): ReleaseAsset | null {
-  const extension = platform === 'darwin' ? '.dmg' : platform === 'win32' ? '.exe' : '.appimage'
-  const compatible = assets.filter((asset) => asset.name.toLowerCase().endsWith(extension))
+  const allowedExtensions =
+    platform === 'darwin'
+      ? ['.dmg']
+      : platform === 'win32'
+        ? ['.exe']
+        : ['.appimage', '.deb']
+
+  const compatible = assets.filter((asset) => {
+    const lower = asset.name.toLowerCase()
+    return allowedExtensions.some((extension) => lower.endsWith(extension))
+  })
   if (compatible.length === 0) return null
 
   const archPatterns =
@@ -74,13 +83,26 @@ export function selectReleaseAsset(
       : arch === 'x64'
         ? [/(^|[-_.])x64([-_.]|$)/i, /x86_64/i, /amd64/i]
         : [new RegExp(escapeRegExp(arch), 'i')]
-  return (
-    compatible.find((asset) => archPatterns.some((pattern) => pattern.test(asset.name))) ??
-    compatible.find((asset) => /universal|all[-_.]?arch/i.test(asset.name)) ??
-    (compatible.length === 1 && !/arm64|aarch64|x64|x86_64|amd64/i.test(compatible[0].name)
-      ? compatible[0]
-      : null)
+
+  const matched = compatible.filter((asset) =>
+    archPatterns.some((pattern) => pattern.test(asset.name))
   )
+
+  if (matched.length > 0) {
+    if (platform === 'linux') {
+      return matched.find((asset) => asset.name.toLowerCase().endsWith('.appimage')) ?? matched[0]!
+    }
+    return matched[0]!
+  }
+
+  const universal = compatible.find((asset) => /universal|all[-_.]?arch/i.test(asset.name))
+  if (universal) return universal
+
+  if (compatible.length === 1 && !/arm64|aarch64|x64|x86_64|amd64/i.test(compatible[0]!.name)) {
+    return compatible[0]!
+  }
+
+  return null
 }
 
 function toVersionNumber(value: string): number {

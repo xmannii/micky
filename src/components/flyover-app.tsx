@@ -276,7 +276,7 @@ export function FlyoverApp(): React.JSX.Element {
   return (
     <main className="flex h-full items-start justify-center p-2" dir="rtl">
       <section
-        className="flyover-surface flex w-full flex-col gap-3 rounded-[1.5rem] border border-border/70 bg-card/95 px-3.5 py-3.5 shadow-2xl backdrop-blur-xl"
+        className="flyover-surface flex w-full flex-col gap-3 rounded-[1.5rem] border border-border/70 bg-card/95 px-3.5 py-3.5 shadow-2xl backdrop-blur-xl dark:bg-grey-900/95"
         data-layout={layout}
         data-compose-layout={composeLayout}
         aria-live="polite"

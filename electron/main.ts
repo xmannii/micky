@@ -257,10 +257,18 @@ function applyNativeTheme(theme: AppTheme): void {
   nativeTheme.themeSource = theme
   if (mainWindow && !mainWindow.isDestroyed() && process.platform !== 'darwin') {
     mainWindow.setTitleBarOverlay(titleBarOverlay(theme))
+    if (process.platform === 'linux') {
+      mainWindow.setBackgroundColor(theme === 'light' ? '#fbfaf4' : '#0a0a09')
+    }
   }
 }
 
 function titleBarOverlay(theme: AppTheme = settingsStore?.get().theme ?? DEFAULT_THEME) {
+  if (process.platform === 'linux') {
+    return theme === 'light'
+      ? { color: '#fbfaf4', symbolColor: '#1c1c19', height: 36 }
+      : { color: '#0a0a09', symbolColor: '#e1e0cc', height: 36 }
+  }
   return theme === 'light'
     ? { color: '#fbfaf4', symbolColor: '#1c1c19', height: 36 }
     : { color: '#121211', symbolColor: '#e1e0cc', height: 36 }
@@ -1020,7 +1028,12 @@ function createWindow(): void {
     autoHideMenuBar: true,
     maximizable: false,
     fullscreenable: false,
-    backgroundColor: '#00000000',
+    backgroundColor:
+      process.platform === 'linux'
+        ? settingsStore?.get().theme === 'light'
+          ? '#fbfaf4'
+          : '#0a0a09'
+        : '#00000000',
     ...(process.platform !== 'darwin' ? { icon: resolveAppIcon() } : {}),
     ...(process.platform === 'darwin'
       ? {

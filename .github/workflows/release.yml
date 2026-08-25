@@ -112,6 +112,13 @@ jobs:
             target: --win --x64
             artifact: micky-windows-x64
             files: release/*.exe
+          - label: Linux x64
+            os: ubuntu-latest
+            target: --linux --x64
+            artifact: micky-linux-x64
+            files: |
+              release/*.AppImage
+              release/*.deb
 
     runs-on: ${{ matrix.os }}
 

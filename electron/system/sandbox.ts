@@ -1,10 +1,14 @@
 import { existsSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { COMMAND_OUTPUT_CAP, capOutput } from './output'
 
 export const COMMAND_TIMEOUT_MS = 15_000
 const SANDBOX_EXEC = '/usr/bin/sandbox-exec'
+
+const MAC_DEFAULT_PATH = '/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin'
+const LINUX_DEFAULT_PATH = `/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin:/snap/bin:${join(homedir(), '.local/bin')}`
 
 const SEATBELT_POLICY = `(version 1)
 (deny default)
@@ -63,7 +67,10 @@ export async function runArgv(
   const child = spawn(command[0]!, command.slice(1), {
     cwd: options.cwd ?? homedir(),
     env: {
-      PATH: '/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin',
+      PATH:
+        process.platform === 'darwin'
+          ? MAC_DEFAULT_PATH
+          : process.env.PATH || LINUX_DEFAULT_PATH,
       HOME: homedir(),
       USER: process.env.USER ?? '',
       LANG: process.env.LANG ?? 'en_US.UTF-8',
