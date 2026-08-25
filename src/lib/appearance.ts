@@ -6,6 +6,10 @@ export function applyAppearance({ theme, fontFamily }: AppearanceSnapshot): void
   root.classList.toggle('light', theme === 'light')
   root.style.colorScheme = theme
   root.style.setProperty('--app-font-family', quoteFontFamily(fontFamily))
+  const platform = window.api?.app?.platform
+  if (platform) {
+    root.dataset.platform = platform
+  }
 }
 
 function quoteFontFamily(fontFamily: string): string {

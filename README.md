@@ -11,6 +11,7 @@ Speak naturally, let Micky handle the task, and get back to your life.
 
 [![Release](https://img.shields.io/github/v/release/xmannii/micky?style=flat-square)](https://github.com/xmannii/micky/releases/latest)
 [![CI](https://img.shields.io/github/actions/workflow/status/xmannii/micky/ci.yml?branch=main&style=flat-square&label=tests)](https://github.com/xmannii/micky/actions/workflows/ci.yml)
+[![Linux](https://img.shields.io/badge/Linux-Ubuntu%20|%20Debian-E95420?style=flat-square&logo=ubuntu)](https://github.com/xmannii/micky/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-111111?style=flat-square&logo=apple)](https://github.com/xmannii/micky/releases/latest)
 [![Windows](https://img.shields.io/badge/Windows-x64-0078D4?style=flat-square&logo=windows11)](https://github.com/xmannii/micky/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-7c3aed?style=flat-square)](#license)
@@ -106,8 +107,25 @@ Ordinary reads and text-file edits inside allowed locations can run directly. Ex
 
 Get the latest installer from [GitHub Releases](https://github.com/xmannii/micky/releases/latest):
 
+- **Linux x64 (Ubuntu / Debian):** `micky-<version>-x64.deb`
+- **Linux x64 (portable AppImage):** `micky-<version>-x64.AppImage`
 - **macOS Apple Silicon:** `micky-<version>-arm64.dmg`
 - **Windows x64:** `micky-<version>-x64-setup.exe`
+
+### Installing on Linux (Ubuntu / Debian)
+
+**Using the `.deb` package (Recommended):**
+```bash
+sudo apt install ./micky-<version>-x64.deb
+```
+
+**Using the portable `.AppImage`:**
+```bash
+chmod +x micky-<version>-x64.AppImage
+./micky-<version>-x64.AppImage
+```
+
+*Note:* Secure API key storage uses GNOME Keyring / KWallet via `libsecret`. For active window paste during dictation on X11, install `xdotool` (`sudo apt install xdotool`).
 
 The current builds are unsigned and macOS builds are not notarized. Gatekeeper or SmartScreen may show a warning. Download Micky only from this repository, or build it from source.
 
@@ -187,7 +205,7 @@ The renderer talks to the Electron main process only through the preload API. Co
 
 ## Releases and CI
 
-Every push and pull request runs typechecking and the test suite. A version change on `main` starts macOS and Windows packaging. When both builds succeed, the release workflow creates `v<version>` and attaches the installers.
+Every push and pull request runs typechecking and the test suite. A version change on `main` starts macOS, Windows, and Linux packaging. When those builds succeed, the release workflow creates `v<version>` and attaches the installers.
 
 To prepare a release:
 

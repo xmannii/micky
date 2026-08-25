@@ -11,6 +11,7 @@ const SECRET_HOME_PREFIXES = [
   '.ssh',
   '.aws',
   '.gnupg',
+  '.pki',
   join('Library', 'Keychains'),
   join('Library', 'Cookies'),
   join('Library', 'Safari'),
@@ -19,7 +20,26 @@ const SECRET_HOME_PREFIXES = [
   join('Library', 'Application Support', 'BraveSoftware'),
   join('Library', 'Application Support', 'Arc'),
   join('Library', 'Application Support', 'Chromium'),
-  join('Library', 'Application Support', 'Microsoft Edge')
+  join('Library', 'Application Support', 'Microsoft Edge'),
+  join('.local', 'share', 'keyrings'),
+  join('.local', 'share', 'kwalletd'),
+  join('.config', 'google-chrome'),
+  join('.config', 'chromium'),
+  join('.config', 'BraveSoftware'),
+  join('.config', 'microsoft-edge'),
+  join('.mozilla', 'firefox'),
+  '.mozilla',
+  '.thunderbird',
+  join('snap', 'firefox'),
+  join('snap', 'chromium'),
+  join('snap', 'brave'),
+  join('snap', 'thunderbird'),
+  join('.var', 'app', 'org.mozilla.firefox'),
+  join('.var', 'app', 'org.mozilla.thunderbird'),
+  join('.var', 'app', 'org.chromium.Chromium'),
+  join('.var', 'app', 'com.google.Chrome'),
+  join('.var', 'app', 'com.brave.Browser'),
+  join('.var', 'app', 'com.microsoft.Edge')
 ]
 
 const SECRET_BASENAME =

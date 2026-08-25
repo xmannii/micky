@@ -212,6 +212,74 @@
       );
   }
 
+  [data-platform='linux'] .voice-shell {
+    background:
+      radial-gradient(
+        circle at 50% 40%,
+        color-mix(in srgb, var(--foreground) 6%, transparent) 0%,
+        transparent 50%
+      ),
+      linear-gradient(
+        180deg,
+        var(--grey-900) 0%,
+        var(--grey-950) 100%
+      );
+  }
+
+  [data-platform='linux'].light .voice-shell,
+  [data-platform='linux'] .light .voice-shell {
+    background:
+      radial-gradient(
+        circle at 50% 40%,
+        color-mix(in srgb, var(--foreground) 3%, transparent) 0%,
+        transparent 50%
+      ),
+      linear-gradient(
+        180deg,
+        var(--grey-900) 0%,
+        var(--grey-950) 100%
+      );
+  }
+
+  [data-platform='linux'] .home-status {
+    background: color-mix(in srgb, var(--grey-800) 80%, transparent);
+    border-color: var(--grey-700);
+  }
+
+  [data-platform='linux'] .home-dock {
+    background: color-mix(in srgb, var(--grey-800) 85%, transparent);
+    border-color: var(--grey-700);
+    box-shadow: 0 0.75rem 2.5rem rgba(0, 0, 0, 0.4);
+  }
+
+  [data-platform='linux'] .active-conversation-panel {
+    background: color-mix(in srgb, var(--grey-950) 60%, transparent);
+    border-left-color: var(--grey-700);
+  }
+
+  [data-platform='linux'] .flyover-surface {
+    background: color-mix(in srgb, var(--grey-900) 95%, transparent);
+  }
+
+  [data-platform='linux'].light .home-status,
+  [data-platform='linux'] .light .home-status {
+    background: color-mix(in srgb, var(--grey-800) 40%, transparent);
+    border-color: var(--grey-700);
+  }
+
+  [data-platform='linux'].light .home-dock,
+  [data-platform='linux'] .light .home-dock {
+    background: color-mix(in srgb, var(--grey-800) 40%, transparent);
+    border-color: var(--grey-700);
+    box-shadow: 0 0.75rem 2.5rem rgba(0, 0, 0, 0.08);
+  }
+
+  [data-platform='linux'].light .active-conversation-panel,
+  [data-platform='linux'] .light .active-conversation-panel {
+    background: color-mix(in srgb, var(--grey-950) 40%, transparent);
+    border-left-color: var(--grey-700);
+  }
+
   .voice-shell::before {
     position: absolute;
     z-index: -1;

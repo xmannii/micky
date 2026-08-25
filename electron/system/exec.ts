@@ -57,7 +57,7 @@ export async function runUserCommand(
 
   if (needsApproval) {
     const approved = await options.requestApproval({
-      purpose: purpose.trim() || 'می‌خوام یه دستور روی مک اجرا کنم.',
+      purpose: purpose.trim() || 'می‌خوام یه دستور روی سیستم اجرا کنم.',
       command,
       toolName: 'run_command',
       detail: command
@@ -95,8 +95,8 @@ export async function openUserTarget(
   target: string,
   options: PathGuardOptions = {}
 ): Promise<{ opened: boolean; message?: string }> {
-  if (process.platform !== 'darwin') {
-    return { opened: false, message: 'باز کردن برنامه فعلاً فقط روی مک است.' }
+  if (process.platform !== 'darwin' && process.platform !== 'linux') {
+    return { opened: false, message: 'باز کردن برنامه فعلاً فقط روی مک و لینوکس است.' }
   }
   const trimmed = target.trim()
   if (!trimmed) return { opened: false, message: 'چیزی برای باز کردن نیست.' }
@@ -108,7 +108,8 @@ export async function openUserTarget(
     if (!/^https?:\/\//i.test(trimmed) && !/^mailto:/i.test(trimmed)) {
       return { opened: false, message: 'فقط لینک‌های معمولی باز می‌شوند.' }
     }
-    const result = await runArgv(['/usr/bin/open', trimmed], {
+    const opener = process.platform === 'darwin' ? '/usr/bin/open' : LINUX_OPENER
+    const result = await runArgv([opener, trimmed], {
       sandboxed: false,
       timeoutMs: 8_000
     })
@@ -118,7 +119,8 @@ export async function openUserTarget(
   if (looksLikePath(trimmed)) {
     try {
       const path = await resolveSafePath(trimmed, options)
-      const result = await runArgv(['/usr/bin/open', path], {
+      const opener = process.platform === 'darwin' ? '/usr/bin/open' : LINUX_OPENER
+      const result = await runArgv([opener, path], {
         sandboxed: false,
         timeoutMs: 8_000
       })
@@ -134,13 +136,43 @@ export async function openUserTarget(
   if (trimmed.startsWith('-')) {
     return { opened: false, message: 'اسم برنامه نامعتبر است.' }
   }
-  const result = await runArgv(['/usr/bin/open', '-a', trimmed], {
+
+  if (process.platform === 'darwin') {
+    const result = await runArgv(['/usr/bin/open', '-a', trimmed], {
+      sandboxed: false,
+      timeoutMs: 8_000
+    })
+    return result.ok
+      ? { opened: true }
+      : { opened: false, message: result.stderr || 'برنامه پیدا نشد.' }
+  }
+
+  const launchId = linuxAppLaunchId(trimmed)
+  if (!launchId) {
+    return { opened: false, message: 'اسم برنامه نامعتبر است.' }
+  }
+
+  const gtkResult = await runArgv([LINUX_LAUNCHER, launchId], {
     sandboxed: false,
     timeoutMs: 8_000
   })
-  return result.ok
+  return gtkResult.ok
     ? { opened: true }
-    : { opened: false, message: result.stderr || 'برنامه پیدا نشد.' }
+    : { opened: false, message: gtkResult.stderr || 'برنامه پیدا نشد.' }
+}
+
+const LINUX_OPENER = '/usr/bin/xdg-open'
+const LINUX_LAUNCHER = '/usr/bin/gtk-launch'
+
+export function linuxAppLaunchId(target: string): string | null {
+  const trimmed = target.trim()
+  if (!trimmed || trimmed.startsWith('-') || trimmed.includes('/') || trimmed.includes('\\')) {
+    return null
+  }
+  if (/[\n\r;|&$`<>]/.test(trimmed)) return null
+  const desktopId = trimmed.replace(/\.desktop$/i, '')
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(desktopId)) return null
+  return desktopId
 }
 
 function finish(result: ExecResult): RunCommandResult {

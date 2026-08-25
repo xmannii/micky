@@ -112,6 +112,13 @@ jobs:
             target: --win --x64
             artifact: micky-windows-x64
             files: release/*.exe
+          - label: Linux x64
+            os: ubuntu-latest
+            target: --linux --x64
+            artifact: micky-linux-x64
+            files: |
+              release/*.AppImage
+              release/*.deb
 
     runs-on: ${{ matrix.os }}
 
@@ -136,10 +143,18 @@ jobs:
       - name: Build application
         run: pnpm build
 
+      - name: Install Linux packaging tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fakeroot dpkg
+          sudo apt-get install -y libfuse2t64 || sudo apt-get install -y libfuse2
+
       - name: Package installer
         shell: bash
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          APPIMAGE_EXTRACT_AND_RUN: '1'
         run: pnpm exec electron-builder ${{ matrix.target }} --publish never
 
       - name: Upload installer

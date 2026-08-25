@@ -19,11 +19,17 @@ test('selectReleaseAsset prefers the current platform and architecture', () => {
   const assets = [
     { name: 'micky-0.0.5-arm64.dmg', downloadUrl: 'arm' },
     { name: 'micky-0.0.5-x64.dmg', downloadUrl: 'intel' },
-    { name: 'micky-0.0.5-x64-setup.exe', downloadUrl: 'windows' }
+    { name: 'micky-0.0.5-x64-setup.exe', downloadUrl: 'windows' },
+    { name: 'micky-0.0.5-x64.AppImage', downloadUrl: 'linux-appimage' },
+    { name: 'micky-0.0.5-amd64.deb', downloadUrl: 'linux-deb' }
   ]
   assert.equal(selectReleaseAsset(assets, 'darwin', 'arm64')?.downloadUrl, 'arm')
   assert.equal(selectReleaseAsset(assets, 'win32', 'x64')?.downloadUrl, 'windows')
-  assert.equal(selectReleaseAsset(assets, 'linux', 'x64'), null)
+  assert.equal(selectReleaseAsset(assets, 'linux', 'x64')?.downloadUrl, 'linux-appimage')
+  assert.equal(
+    selectReleaseAsset([assets[4]], 'linux', 'x64')?.downloadUrl,
+    'linux-deb'
+  )
   assert.equal(
     selectReleaseAsset([assets[0]], 'darwin', 'x64'),
     null,

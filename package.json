@@ -1,6 +1,6 @@
 {
   "name": "micky",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Micky — Persian-first agentic voice assistant",
   "license": "MIT",
   "engines": {
@@ -137,12 +137,35 @@
     "linux": {
       "icon": "build/icons",
       "target": [
-        "AppImage"
+        "AppImage",
+        "deb"
       ],
-      "category": "Utility"
+      "category": "Utility",
+      "synopsis": "Micky — Persian-first agentic voice assistant",
+      "description": "Micky is a lightweight, Persian-first desktop voice assistant featuring local ASR and modular LLM integrations.",
+      "maintainer": "Mani <mani@micky.dev>"
     },
     "appImage": {
-      "artifactName": "${name}-${version}.${ext}"
+      "artifactName": "${name}-${version}-${arch}.${ext}",
+      "category": "Utility"
+    },
+    "deb": {
+      "artifactName": "${name}-${version}-${arch}.${ext}",
+      "category": "utils",
+      "priority": "optional",
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0",
+        "libasound2 | libasound2t64",
+        "libasound2-data"
+      ]
     },
     "npmRebuild": false
   }
