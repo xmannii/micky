@@ -193,7 +193,7 @@ pnpm dist
 
 ## انتشار و CI
 
-هر push و pull request بررسی TypeScript و آزمون‌ها را اجرا می‌کند. تغییر نسخه روی شاخه `main` ساخت macOS و Windows را شروع می‌کند. بعد از موفقیت هر دو خروجی، workflow برچسب `v<version>` را می‌سازد و فایل‌های نصب را به GitHub Release اضافه می‌کند.
+هر push و pull request بررسی TypeScript و آزمون‌ها را اجرا می‌کند. تغییر نسخه روی شاخه `main` ساخت macOS، Windows و لینوکس را شروع می‌کند. بعد از موفقیت این خروجی‌ها، workflow برچسب `v<version>` را می‌سازد و فایل‌های نصب را به GitHub Release اضافه می‌کند.
 
 برای آماده‌کردن نسخه بعدی:
 

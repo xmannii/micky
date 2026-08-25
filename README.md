@@ -205,7 +205,7 @@ The renderer talks to the Electron main process only through the preload API. Co
 
 ## Releases and CI
 
-Every push and pull request runs typechecking and the test suite. A version change on `main` starts macOS and Windows packaging. When both builds succeed, the release workflow creates `v<version>` and attaches the installers.
+Every push and pull request runs typechecking and the test suite. A version change on `main` starts macOS, Windows, and Linux packaging. When those builds succeed, the release workflow creates `v<version>` and attaches the installers.
 
 To prepare a release:
 
