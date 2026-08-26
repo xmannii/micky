@@ -16,6 +16,12 @@ test('blocks sudo, disk erase, and download-to-shell even if the user would appr
   assert.equal((await classifyCommand('security dump-keychain')).tier, 'blocked')
 })
 
+test('blocks launchctl and crontab instead of treating them as a scheduler', async () => {
+  assert.equal((await classifyCommand('launchctl load ~/Library/LaunchAgents/news.plist')).tier, 'blocked')
+  assert.equal((await classifyCommand('crontab -e')).tier, 'blocked')
+  assert.equal((await classifyCommand('echo "25 23 * * * true" | crontab -')).tier, 'blocked')
+})
+
 test('allows a tight read-only command set without confirmation on macOS sandbox', async () => {
   const ls = await classifyCommand('ls')
   const gitStatus = await classifyCommand('git status')

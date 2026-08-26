@@ -105,6 +105,7 @@ test('normalizes invalid persisted values on load', async () => {
   assert.equal(settings.toolApprovals.write_file, DEFAULT_TOOL_APPROVALS.write_file)
   assert.equal(settings.toolApprovals.run_command, 'blocked')
   assert.equal(settings.toolApprovals.open_app, DEFAULT_TOOL_APPROVALS.open_app)
+  assert.equal(settings.toolApprovals.manage_tasks, 'auto')
   assert.equal(settings.flyoverInputMode, DEFAULT_FLYOVER_INPUT_MODE)
   assert.equal(settings.assistantShortcut, DEFAULT_ASSISTANT_SHORTCUT)
   assert.equal(settings.newChatShortcut, DEFAULT_NEW_CHAT_SHORTCUT)

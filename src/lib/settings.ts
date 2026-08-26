@@ -27,10 +27,14 @@ export const SYSTEM_TOOL_IDS = [
   'run_command'
 ] as const
 
+export const COMPANION_TOOL_IDS = ['manage_tasks'] as const
+
 export type SystemToolId = (typeof SYSTEM_TOOL_IDS)[number]
+export type CompanionToolId = (typeof COMPANION_TOOL_IDS)[number]
+export type ApprovalToolId = SystemToolId | CompanionToolId
 export type ToolApprovalMode = 'auto' | 'smart' | 'confirm' | 'blocked'
 export type ToolApprovalPreset = 'strict' | 'balanced' | 'yolo'
-export type ToolApprovalSettings = Record<SystemToolId, ToolApprovalMode>
+export type ToolApprovalSettings = Record<ApprovalToolId, ToolApprovalMode>
 
 export const TOOL_APPROVAL_PRESETS: Record<ToolApprovalPreset, ToolApprovalSettings> = {
   strict: {
@@ -41,7 +45,8 @@ export const TOOL_APPROVAL_PRESETS: Record<ToolApprovalPreset, ToolApprovalSetti
     search_files: 'confirm',
     search_in_files: 'confirm',
     open_app: 'confirm',
-    run_command: 'confirm'
+    run_command: 'confirm',
+    manage_tasks: 'confirm'
   },
   balanced: {
     fetch_webpage: 'auto',
@@ -51,7 +56,8 @@ export const TOOL_APPROVAL_PRESETS: Record<ToolApprovalPreset, ToolApprovalSetti
     search_files: 'auto',
     search_in_files: 'auto',
     open_app: 'auto',
-    run_command: 'smart'
+    run_command: 'smart',
+    manage_tasks: 'auto'
   },
   yolo: {
     fetch_webpage: 'auto',
@@ -61,7 +67,8 @@ export const TOOL_APPROVAL_PRESETS: Record<ToolApprovalPreset, ToolApprovalSetti
     search_files: 'auto',
     search_in_files: 'auto',
     open_app: 'auto',
-    run_command: 'auto'
+    run_command: 'auto',
+    manage_tasks: 'auto'
   }
 }
 
@@ -84,6 +91,14 @@ export function detectToolApprovalPreset(
 
 export function isSystemToolId(value: unknown): value is SystemToolId {
   return typeof value === 'string' && SYSTEM_TOOL_IDS.includes(value as SystemToolId)
+}
+
+export function isCompanionToolId(value: unknown): value is CompanionToolId {
+  return typeof value === 'string' && (COMPANION_TOOL_IDS as readonly string[]).includes(value)
+}
+
+export function isApprovalToolId(value: unknown): value is ApprovalToolId {
+  return isSystemToolId(value) || isCompanionToolId(value)
 }
 
 export function isToolApprovalMode(value: unknown): value is ToolApprovalMode {

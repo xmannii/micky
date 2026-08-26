@@ -16,24 +16,27 @@ import type { SettingsStore } from '../settings/store'
 import { buildSystemInstructions, type AgentResponseSurface } from '../soul/prompt'
 import type { SoulStore } from '../soul/store'
 import type { ApprovalRequest } from '../system/exec'
-import { activeAgentToolNames, createAgentTools } from './tools'
+import { activeAgentToolNames, createAgentTools, type AgentToolProfile } from './tools'
 import { agentErrorMessage, emptyResponseMessage, errorText } from './error-message'
 import { hasExplicitScreenIntent } from '../vision/intent'
 import type { ChatStore } from '../chats/store'
 import type { SkillService } from '../skills/service'
 import type { WebSearchService } from '../web-search/service'
+import type { TaskStore } from '../tasks/store'
 
 type AgentServiceOptions = {
   settings: SettingsStore
   llm: LlmService
   soul: SoulStore
   chats?: ChatStore
+  tasks?: TaskStore
   skills?: SkillService
   webSearch?: WebSearchService
   getWindow: () => BrowserWindow | null
   onApprovalNeeded?: () => void
   lookAtScreen?: (question: string, abortSignal?: AbortSignal) => Promise<string>
   onStatusChange?: (status: AgentStatus) => void
+  toolProfile?: AgentToolProfile
 }
 
 type AgentRespondOptions = {
@@ -130,20 +133,29 @@ export class AgentService {
       const skills = await this.options.skills?.refresh()
       let endRequested = false
       let screenCaptureConsumed = false
-      const screenCaptureAllowed = hasExplicitScreenIntent(text)
+      const unattended = this.options.toolProfile === 'unattended'
+      const screenCaptureAllowed = unattended ? false : hasExplicitScreenIntent(text)
       const tools = createAgentTools(this.options.soul, {
         chats: this.options.chats,
+        tasks: unattended ? undefined : this.options.tasks,
+        profile: this.options.toolProfile ?? 'live',
         systemToolsEnabled: settings.systemToolsEnabled !== false,
         toolApprovals: settings.toolApprovals,
         screenAccessEnabled: settings.screenAccessEnabled !== false,
         abortSignal: abort.signal,
-        onEndConversation: () => {
-          endRequested = true
-        },
-        requestApproval: (request) => this.#requestApproval(turnId, turn, request, abort.signal),
+        onEndConversation: unattended
+          ? undefined
+          : () => {
+              endRequested = true
+            },
+        requestApproval: unattended
+          ? async () => true
+          : (request) => this.#requestApproval(turnId, turn, request, abort.signal),
         screenCaptureAllowed,
         lookAtScreen: async (question) => {
-          if (!screenCaptureAllowed) return 'درخواست صریحی برای دیدن صفحه وجود ندارد.'
+          if (unattended || !screenCaptureAllowed) {
+            return 'درخواست صریحی برای دیدن صفحه وجود ندارد.'
+          }
           if (screenCaptureConsumed) return 'در هر نوبت فقط یک بار می‌توانم صفحه را ببینم.'
           screenCaptureConsumed = true
           return this.options.lookAtScreen?.(question, abort.signal) ?? 'دیدن صفحه در دسترس نیست.'
@@ -354,6 +366,7 @@ export class AgentService {
 
   #emitStatus(): void {
     this.options.onStatusChange?.(this.#status)
+    if (this.options.toolProfile === 'unattended') return
     const window = this.options.getWindow()
     if (window && !window.isDestroyed()) {
       window.webContents.send(AGENT_STATUS_CHANNEL, this.#status)
@@ -361,6 +374,7 @@ export class AgentService {
   }
 
   #emitDelta(delta: AgentDelta): void {
+    if (this.options.toolProfile === 'unattended') return
     const window = this.options.getWindow()
     if (window && !window.isDestroyed()) {
       window.webContents.send(AGENT_DELTA_CHANNEL, delta)

@@ -455,6 +455,7 @@
     min-height: 0;
     flex-direction: column;
     border-left: 1px solid color-mix(in srgb, var(--foreground) 9%, transparent);
+    text-align: start;
   }
 
   .conversation-panel-header {
@@ -466,6 +467,113 @@
     padding: calc(env(titlebar-area-height, 36px) + 0.35rem) 0.9rem 0.7rem 1rem;
     app-region: drag;
     -webkit-app-region: drag;
+  }
+
+  .conversation-panel-tabs {
+    display: flex;
+    flex: none;
+    gap: 0.2rem;
+    margin: 0 0.9rem 0.7rem;
+    padding: 0.18rem;
+    border-radius: 0.85rem;
+    background: color-mix(in srgb, var(--foreground) 6%, transparent);
+    app-region: no-drag;
+    -webkit-app-region: no-drag;
+  }
+
+  .conversation-panel-tabs button {
+    flex: 1;
+    height: 1.8rem;
+    border: 0;
+    border-radius: 0.7rem;
+    background: transparent;
+    color: var(--muted-foreground);
+    font-size: 0.68rem;
+    font-weight: 550;
+  }
+
+  .conversation-panel-tabs button[aria-selected='true'] {
+    background: var(--background);
+    color: var(--foreground);
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--foreground) 8%, transparent);
+  }
+
+  .task-run-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.2rem 0.7rem 1.2rem;
+  }
+
+  .task-run-row {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.7rem 0.75rem;
+    border: 0;
+    border-radius: 0.9rem;
+    background: transparent;
+    color: inherit;
+    text-align: start;
+  }
+
+  .task-run-row:hover {
+    background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  }
+
+  .task-run-row-title {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .task-run-row-meta {
+    overflow: hidden;
+    color: var(--muted-foreground);
+    font-size: 0.62rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .task-run-detail {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .task-run-detail-bar {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.15rem 0.7rem 0.55rem;
+  }
+
+  .task-run-result {
+    padding: 0.15rem 1rem 1.4rem;
+    overflow-wrap: anywhere;
+    font-size: 0.9rem;
+    line-height: 1.65;
+    text-align: start;
+  }
+
+  .task-run-history-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.7rem 0.75rem;
+    border-radius: 0.85rem;
+    background: color-mix(in srgb, var(--foreground) 4%, transparent);
+  }
+
+  .task-run-history-body {
+    overflow-wrap: anywhere;
+    font-size: 0.78rem;
+    line-height: 1.55;
+    text-align: start;
   }
 
   .conversation-panel-collapse {
@@ -705,6 +813,8 @@
 
   .markdown-content {
     min-width: 0;
+    text-align: start;
+    unicode-bidi: isolate;
   }
 
   .markdown-content :where(p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre, table, hr) {
@@ -817,6 +927,8 @@
     color: color-mix(in srgb, var(--foreground) 88%, var(--grey-400));
     font-size: 0.875rem;
     line-height: 1.75rem;
+    text-align: start;
+    unicode-bidi: isolate;
   }
 
   .chat-message-plain {

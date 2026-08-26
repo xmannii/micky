@@ -54,7 +54,11 @@ const TOOL_STATUS_LABEL: Record<string, string> = {
   search_web: 'دارم وب رو می‌گردم…',
   edit_personal_context: 'دارم تنظیمات شخصی رو آماده می‌کنم…',
   load_skill: 'دارم مهارت مناسب رو آماده می‌کنم…',
-  read_skill_resource: 'دارم راهنمای مهارت رو می‌خونم…'
+  read_skill_resource: 'دارم راهنمای مهارت رو می‌خونم…',
+  list_tasks: 'دارم یادآوری‌ها رو می‌خونم…',
+  create_task: 'دارم یادآوری رو ذخیره می‌کنم…',
+  update_task: 'دارم یادآوری رو عوض می‌کنم…',
+  delete_task: 'دارم یادآوری رو حذف می‌کنم…'
 }
 
 const TOOL_NAME_LABEL: Record<string, string> = {
@@ -76,7 +80,11 @@ const TOOL_NAME_LABEL: Record<string, string> = {
   search_web: 'جستجوی وب',
   edit_personal_context: 'تنظیمات شخصی',
   load_skill: 'بارگذاری مهارت',
-  read_skill_resource: 'راهنمای مهارت'
+  read_skill_resource: 'راهنمای مهارت',
+  list_tasks: 'یادآوری‌ها',
+  create_task: 'ثبت یادآوری',
+  update_task: 'ویرایش یادآوری',
+  delete_task: 'حذف یادآوری'
 }
 
 export function agentStatusLabel(phase: AgentPhase | string, toolName?: string | null): string {

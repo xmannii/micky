@@ -19,10 +19,12 @@ const MARKDOWN_COMPONENTS: Components = {
 
 function MarkdownContent({
   text,
-  surface
+  surface,
+  dir
 }: {
   text: string
   surface: 'flyover' | 'chat'
+  dir?: 'auto' | 'rtl' | 'ltr'
 }): React.JSX.Element {
   return (
     <div
@@ -30,7 +32,7 @@ function MarkdownContent({
         'markdown-content',
         surface === 'flyover' ? 'flyover-markdown' : 'chat-markdown'
       )}
-      dir={detectTextDirection(text)}
+      dir={dir ?? detectTextDirection(text)}
     >
       <Markdown
         remarkPlugins={MARKDOWN_PLUGINS}
@@ -59,9 +61,11 @@ export const FlyoverMarkdown = memo(function FlyoverMarkdown({
 })
 
 export const ChatMarkdown = memo(function ChatMarkdown({
-  text
+  text,
+  dir
 }: {
   text: string
+  dir?: 'auto' | 'rtl' | 'ltr'
 }): React.JSX.Element {
-  return <MarkdownContent text={text} surface="chat" />
+  return <MarkdownContent text={text} surface="chat" dir={dir} />
 })

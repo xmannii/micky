@@ -5,6 +5,7 @@ import {
   CircleAlert,
   CircleHelp,
   Database,
+  Clock,
   Download,
   Ear,
   ExternalLink,
@@ -90,6 +91,8 @@ import { useWebSearch } from '@/hooks/use-web-search'
 import { WebSearchSettings } from '@/components/web-search-settings'
 import { AppVersionSettings } from '@/components/app-version-settings'
 import { SystemToolsSettings } from '@/components/system-tools-settings'
+import { TaskSettings } from '@/components/task-settings'
+import { useTasks } from '@/hooks/use-tasks'
 import {
   Empty,
   EmptyContent,
@@ -115,6 +118,7 @@ type SettingsTab =
   | 'search'
   | 'soul'
   | 'skills'
+  | 'tasks'
   | 'tools'
   | 'history'
   | 'shortcuts'
@@ -137,6 +141,10 @@ const TAB_COPY: Record<SettingsTab, { title: string; description: string }> = {
   skills: {
     title: 'مهارت‌ها',
     description: 'راهنماهای نصب‌شده‌ای که میکی فقط هنگام نیاز بارگذاری می‌کند'
+  },
+  tasks: {
+    title: 'یادآوری‌ها',
+    description: 'چیزهایی که میکی سر وقت بهت می‌گه یا انجام می‌ده'
   },
   tools: {
     title: 'ابزارها و دسترسی‌ها',
@@ -169,6 +177,7 @@ const CORE_SETTINGS_TABS = [
 const CAPABILITY_SETTINGS_TABS = [
   { id: 'soul', label: 'شخصیت', icon: Sparkles },
   { id: 'skills', label: 'مهارت‌ها', icon: Puzzle },
+  { id: 'tasks', label: 'یادآوری‌ها', icon: Clock },
   { id: 'tools', label: 'ابزارها', icon: ShieldCheck },
   { id: 'search', label: 'جستجوی وب', icon: Globe2 }
 ] satisfies ReadonlyArray<{ id: SettingsTab; label: string; icon: typeof Ear }>
@@ -230,6 +239,7 @@ export function SettingsView({
   const llm = useLlm()
   const soul = useSoul()
   const skills = useSkills()
+  const tasks = useTasks()
   const audioDevices = useAudioDevices()
   const webSearch = useWebSearch()
 
@@ -255,7 +265,7 @@ export function SettingsView({
         className="min-h-0 flex-1 gap-0 overflow-hidden border-t border-border/40"
       >
         <TabsList
-          className="h-full w-44 shrink-0 items-stretch justify-start rounded-none border-l border-border/50 bg-card/30 p-3"
+          className="settings-scrollbar flex h-full min-h-0 w-44 shrink-0 flex-col items-stretch justify-start overflow-x-hidden overflow-y-auto overscroll-contain rounded-none border-l border-border/50 bg-card/30 p-3 group-data-vertical/tabs:h-full group-data-vertical/tabs:min-h-0"
           aria-label="بخش‌های تنظیمات"
         >
           <p className="px-2 pb-1 text-[0.6rem] font-medium text-muted-foreground">بخش‌های اصلی</p>
@@ -332,6 +342,10 @@ export function SettingsView({
 
         <SettingsTabPanel tab="skills">
           <SkillsSettings snapshot={skills} />
+        </SettingsTabPanel>
+
+        <SettingsTabPanel tab="tasks">
+          <TaskSettings snapshot={tasks} />
         </SettingsTabPanel>
 
         <SettingsTabPanel tab="tools">

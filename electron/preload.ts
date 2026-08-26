@@ -45,6 +45,8 @@ import {
 } from '@/lib/soul'
 import type { WakeWordActivation, WakeWordStatus } from '@/lib/wake-word'
 import { SKILLS_SNAPSHOT_CHANNEL, type SkillsSnapshot } from '@/lib/skills'
+import { TASKS_OPEN_RUN_CHANNEL, TASKS_SNAPSHOT_CHANNEL, type TasksSnapshot } from '@/lib/tasks'
+import type { SaveTextInput, SaveTextResult, CopyTextResult } from '@/lib/export-text'
 import {
   WEB_SEARCH_SNAPSHOT_CHANNEL,
   type WebSearchApiProviderId,
@@ -222,11 +224,23 @@ const api: MickyAPI = {
     onSnapshotChange: (listener: (snapshot: SkillsSnapshot) => void): (() => void) =>
       subscribe(SKILLS_SNAPSHOT_CHANNEL, listener)
   },
+  tasks: {
+    getSnapshot: (): Promise<TasksSnapshot> => ipcRenderer.invoke('tasks:get-snapshot'),
+    update: (id, patch): Promise<TasksSnapshot> => ipcRenderer.invoke('tasks:update', id, patch),
+    delete: (id): Promise<TasksSnapshot> => ipcRenderer.invoke('tasks:delete', id),
+    onSnapshotChange: (listener: (snapshot: TasksSnapshot) => void): (() => void) =>
+      subscribe(TASKS_SNAPSHOT_CHANNEL, listener),
+    onOpenRun: (listener: (runId: string) => void): (() => void) =>
+      subscribe(TASKS_OPEN_RUN_CHANNEL, listener)
+  },
   app: {
     platform:
       process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux',
     isDevelopment: Boolean(process.defaultApp || process.env.ELECTRON_RENDERER_URL),
     setWindowMode: (mode): Promise<void> => ipcRenderer.invoke('app:set-window-mode', mode),
+    saveText: (input: SaveTextInput): Promise<SaveTextResult> =>
+      ipcRenderer.invoke('app:save-text', input),
+    copyText: (text: string): Promise<CopyTextResult> => ipcRenderer.invoke('app:copy-text', text),
     onOpenSettings: (listener): (() => void) => subscribe('app:open-settings', listener),
     onEarcon: (listener: (kind: EarconKind) => void): (() => void) =>
       subscribe(EARCON_CHANNEL, listener)

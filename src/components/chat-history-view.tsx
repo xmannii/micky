@@ -16,9 +16,10 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { TextExportActions } from '@/components/text-export-actions'
 import type { ChatDetail, ChatSearchHit, ChatSummary, ChatsSnapshot } from '@/lib/chats'
+import { chatToMarkdown } from '@/lib/export-text'
 import { hasRichMarkdown } from '@/lib/flyover-markdown'
-import { detectTextDirection } from '@/lib/text-direction'
 
 const ChatMarkdown = lazy(() =>
   import('@/components/flyover-markdown').then((module) => ({ default: module.ChatMarkdown }))
@@ -195,6 +196,9 @@ export function ChatDetailView({
             {chat ? formatFullDate(chat.updatedAt) : 'دارم بازش می‌کنم…'}
           </p>
         </div>
+        {chat ? (
+          <TextExportActions content={chatToMarkdown(chat)} defaultName={chat.title} />
+        ) : null}
         <AlertDialog>
           <AlertDialogTrigger
             render={<Button variant="ghost" size="icon-sm" aria-label="حذف گفتگو" />}
@@ -229,7 +233,7 @@ export function ChatDetailView({
                   {PERSIAN_TIME.format(message.createdAt)}
                 </time>
               </div>
-              <ChatMessageContent content={message.content} />
+              <ChatMessageContent content={message.content} markdown />
               {message.state !== 'completed' ? (
                 <span className="text-[0.62rem] text-muted-foreground">
                   {message.state === 'interrupted' ? 'پاسخ ناتمام' : 'ناموفق'}
@@ -251,19 +255,21 @@ export function ChatDetailView({
 }
 
 export const ChatMessageContent = memo(function ChatMessageContent({
-  content
+  content,
+  markdown = false
 }: {
   content: string
+  markdown?: boolean
 }): React.JSX.Element {
   const plain = (
-    <p className="chat-message-plain" dir={detectTextDirection(content)}>
+    <p className="chat-message-plain" dir="auto">
       {content}
     </p>
   )
-  if (!hasRichMarkdown(content)) return plain
+  if (!markdown && !hasRichMarkdown(content)) return plain
   return (
     <Suspense fallback={plain}>
-      <ChatMarkdown text={content} />
+      <ChatMarkdown text={content} dir="auto" />
     </Suspense>
   )
 })

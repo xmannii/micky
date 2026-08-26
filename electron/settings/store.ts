@@ -26,6 +26,7 @@ import {
   DEFAULT_THEME,
   DEFAULT_WAKE_WORD_SHORTCUT,
   DEFAULT_VISION_MODEL_ID,
+  COMPANION_TOOL_IDS,
   SYSTEM_TOOL_IDS,
   isToolApprovalMode,
   isFlyoverInputMode,
@@ -315,8 +316,9 @@ function normalizeSettings(value: unknown): AppSettings {
 
 function normalizeToolApprovals(value: unknown): ToolApprovalSettings {
   const record = isRecord(value) ? value : {}
+  const ids = [...SYSTEM_TOOL_IDS, ...COMPANION_TOOL_IDS]
   return Object.fromEntries(
-    SYSTEM_TOOL_IDS.map((toolId) => [
+    ids.map((toolId) => [
       toolId,
       isToolApprovalMode(record[toolId]) ? record[toolId] : DEFAULT_TOOL_APPROVALS[toolId]
     ])

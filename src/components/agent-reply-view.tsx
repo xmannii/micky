@@ -3,6 +3,7 @@ import {
   Brain,
   Check,
   ChevronDown,
+  Clock,
   FileSearch,
   FileText,
   FolderOpen,
@@ -53,7 +54,11 @@ const TOOL_ICON: Record<string, LucideIcon> = {
   search_web: Globe2,
   edit_personal_context: UserRound,
   load_skill: Sparkles,
-  read_skill_resource: FileText
+  read_skill_resource: FileText,
+  list_tasks: Clock,
+  create_task: Clock,
+  update_task: Clock,
+  delete_task: Clock
 }
 
 function ApprovalCard({

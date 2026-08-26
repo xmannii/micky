@@ -16,15 +16,22 @@ import { writeNeedsApproval } from '../system/write-policy'
 import { fetchCleanWebpage } from '../system/web-fetch'
 import type { SkillService } from '../skills/service'
 import type { WebSearchService } from '../web-search/service'
+import type { TaskStore } from '../tasks/store'
+import { registerTaskTools } from '../tasks/agent-tools'
 import {
   DEFAULT_TOOL_APPROVALS,
+  type ApprovalToolId,
   type SystemToolId,
   type ToolApprovalMode,
   type ToolApprovalSettings
 } from '@/lib/settings'
 
+export type AgentToolProfile = 'live' | 'unattended'
+
 export type AgentToolHooks = {
   chats?: ChatStore
+  tasks?: TaskStore
+  profile?: AgentToolProfile
   onEndConversation?: () => void
   systemToolsEnabled?: boolean
   toolApprovals?: ToolApprovalSettings
@@ -38,8 +45,11 @@ export type AgentToolHooks = {
 }
 
 export function createAgentTools(soul: SoulStore, hooks: AgentToolHooks = {}): ToolSet {
-  const tools: ToolSet = {
-    remember: tool({
+  const unattended = hooks.profile === 'unattended'
+  const tools: ToolSet = {}
+
+  if (!unattended) {
+    tools.remember = tool({
       description:
         'Save a durable fact about the user or their world into long-term memory. Use for preferences, people, routines, and things they asked you to remember.',
       inputSchema: z.object({
@@ -49,79 +59,83 @@ export function createAgentTools(soul: SoulStore, hooks: AgentToolHooks = {}): T
         await soul.appendMemory(fact)
         return { saved: true }
       }
+    })
+  }
+
+  tools.recall = tool({
+    description:
+      'Search long-term memory. Pass a short query to filter, or an empty query to read recent memories.',
+    inputSchema: z.object({
+      query: z.string().max(200).describe('Substring to look for; empty to list recent notes')
     }),
-    recall: tool({
-      description:
-        'Search long-term memory. Pass a short query to filter, or an empty query to read recent memories.',
-      inputSchema: z.object({
-        query: z.string().max(200).describe('Substring to look for; empty to list recent notes')
-      }),
-      execute: async ({ query }) => {
-        const memory = await soul.read('memory')
-        const needle = query.trim()
-        if (!needle) return { notes: capText(memory, 2_000) }
-        const lines = memory
-          .split('\n')
-          .map((line) => line.trim())
-          .filter(
-            (line) => line.startsWith('- ') && line.toLowerCase().includes(needle.toLowerCase())
-          )
-        return {
-          notes: lines.length > 0 ? lines.slice(0, 12).join('\n') : 'چیزی در حافظه پیدا نشد.'
-        }
+    execute: async ({ query }) => {
+      const memory = await soul.read('memory')
+      const needle = query.trim()
+      if (!needle) return { notes: capText(memory, 2_000) }
+      const lines = memory
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith('- ') && line.toLowerCase().includes(needle.toLowerCase()))
+      return {
+        notes: lines.length > 0 ? lines.slice(0, 12).join('\n') : 'چیزی در حافظه پیدا نشد.'
       }
+    }
+  })
+
+  tools.search_chats = tool({
+    description:
+      'Search the user’s locally stored past conversations. Use only when they ask what was discussed before or want to find an earlier chat. Use ISO timestamps for date boundaries and keep the query short.',
+    inputSchema: z.object({
+      query: z.string().max(200).optional().describe('Words to find; omit for date-only recall'),
+      from: z.string().max(40).optional().describe('Inclusive ISO date-time boundary'),
+      to: z.string().max(40).optional().describe('Exclusive ISO date-time boundary'),
+      limit: z.number().int().min(1).max(8).optional().describe('Maximum chats to return')
     }),
-    search_chats: tool({
-      description:
-        'Search the user’s locally stored past conversations. Use only when they ask what was discussed before or want to find an earlier chat. Use ISO timestamps for date boundaries and keep the query short.',
-      inputSchema: z.object({
-        query: z.string().max(200).optional().describe('Words to find; omit for date-only recall'),
-        from: z.string().max(40).optional().describe('Inclusive ISO date-time boundary'),
-        to: z.string().max(40).optional().describe('Exclusive ISO date-time boundary'),
-        limit: z.number().int().min(1).max(8).optional().describe('Maximum chats to return')
-      }),
-      execute: async ({ query, from, to, limit }) => {
-        if (!hooks.chats) return { chats: [], message: 'تاریخچه گفتگو در دسترس نیست.' }
-        const matches = hooks.chats.searchChats({
-          query,
-          from: parseDateBoundary(from),
-          to: parseDateBoundary(to),
-          limit: limit ?? 5
-        })
-        return {
-          chats: matches.map((match) => ({
-            id: match.id,
-            title: match.title,
-            date: new Date(match.updatedAt).toISOString(),
-            excerpt: capText(match.excerpt, 500)
-          }))
-        }
+    execute: async ({ query, from, to, limit }) => {
+      if (!hooks.chats) return { chats: [], message: 'تاریخچه گفتگو در دسترس نیست.' }
+      const matches = hooks.chats.searchChats({
+        query,
+        from: parseDateBoundary(from),
+        to: parseDateBoundary(to),
+        limit: limit ?? 5
+      })
+      return {
+        chats: matches.map((match) => ({
+          id: match.id,
+          title: match.title,
+          date: new Date(match.updatedAt).toISOString(),
+          excerpt: capText(match.excerpt, 500)
+        }))
       }
+    }
+  })
+
+  tools.read_chat = tool({
+    description:
+      'Read selected turns from one past chat after search_chats found it. Never read an entire long archive when a short excerpt is enough.',
+    inputSchema: z.object({
+      chatId: z.string().uuid().describe('Chat ID returned by search_chats'),
+      maxMessages: z.number().int().min(2).max(20).optional()
     }),
-    read_chat: tool({
-      description:
-        'Read selected turns from one past chat after search_chats found it. Never read an entire long archive when a short excerpt is enough.',
-      inputSchema: z.object({
-        chatId: z.string().uuid().describe('Chat ID returned by search_chats'),
-        maxMessages: z.number().int().min(2).max(20).optional()
-      }),
-      execute: async ({ chatId, maxMessages }) => {
-        const chat = hooks.chats?.getChat(chatId)
-        if (!chat) return { found: false, message: 'گفتگو پیدا نشد.' }
-        const messages = chat.messages.slice(-(maxMessages ?? 12))
-        return {
-          found: true,
-          title: chat.title,
-          updatedAt: new Date(chat.updatedAt).toISOString(),
-          messages: messages.map((message) => ({
-            speaker: message.role === 'user' ? 'user' : 'Micky',
-            text: capText(message.content, 700),
-            at: new Date(message.createdAt).toISOString()
-          }))
-        }
+    execute: async ({ chatId, maxMessages }) => {
+      const chat = hooks.chats?.getChat(chatId)
+      if (!chat) return { found: false, message: 'گفتگو پیدا نشد.' }
+      const messages = chat.messages.slice(-(maxMessages ?? 12))
+      return {
+        found: true,
+        title: chat.title,
+        updatedAt: new Date(chat.updatedAt).toISOString(),
+        messages: messages.map((message) => ({
+          speaker: message.role === 'user' ? 'user' : 'Micky',
+          text: capText(message.content, 700),
+          at: new Date(message.createdAt).toISOString()
+        }))
       }
-    }),
-    update_user_profile: tool({
+    }
+  })
+
+  if (!unattended) {
+    tools.update_user_profile = tool({
       description:
         'Update a standing fact about the user in their profile. Use when they correct or add identity details.',
       inputSchema: z.object({
@@ -144,8 +158,9 @@ export function createAgentTools(soul: SoulStore, hooks: AgentToolHooks = {}): T
         await soul.patchUser(field, value)
         return { updated: field }
       }
-    }),
-    edit_personal_context: tool({
+    })
+
+    tools.edit_personal_context = tool({
       description:
         "Replace one of Micky's private Markdown context files. Use only when the user explicitly asks to edit Micky's personality, profile document, or memory document. Preserve unrelated information. Prefer remember and update_user_profile for ordinary facts. Explicitly requested edits are applied without an additional confirmation.",
       inputSchema: z.object({
@@ -160,8 +175,9 @@ export function createAgentTools(soul: SoulStore, hooks: AgentToolHooks = {}): T
         await soul.write(file, content)
         return { updated: true, file: `${file.toUpperCase()}.md` }
       }
-    }),
-    end_conversation: tool({
+    })
+
+    tools.end_conversation = tool({
       description:
         'End this conversation and stop listening for a follow-up. Use only when the user is clearly wrapping up the whole chat, such as goodbye, I am done, that is all, or see you later. Do not use for thanks or okay if they might continue.',
       inputSchema: z.object({}),
@@ -170,6 +186,8 @@ export function createAgentTools(soul: SoulStore, hooks: AgentToolHooks = {}): T
         return { ended: true }
       }
     })
+
+    registerTaskTools(tools, hooks)
   }
 
   if (hooks.skills) {
@@ -230,7 +248,8 @@ export function createAgentTools(soul: SoulStore, hooks: AgentToolHooks = {}): T
     })
   }
 
-  tools.look_at_screen = tool({
+  if (!unattended) {
+    tools.look_at_screen = tool({
     description:
       'Look at the active display and explain what is visible. Use when the current user directly asks what you see, asks you to look at something visible now, or asks about their screen.',
     inputSchema: z.object({
@@ -253,6 +272,7 @@ export function createAgentTools(soul: SoulStore, hooks: AgentToolHooks = {}): T
       return { observed: true, observations: await hooks.lookAtScreen(question) }
     }
   })
+  }
 
   if (!hooks.systemToolsEnabled) return tools
 
@@ -297,7 +317,7 @@ export function createAgentTools(soul: SoulStore, hooks: AgentToolHooks = {}): T
         })
     })
 
-  if (toolIsEnabled(hooks, 'write_file'))
+  if (!unattended && toolIsEnabled(hooks, 'write_file'))
     tools.write_file = tool({
       description: writeFileDescription(getToolApprovalMode(hooks, 'write_file')),
       inputSchema: z.object({
@@ -425,7 +445,7 @@ export function createAgentTools(soul: SoulStore, hooks: AgentToolHooks = {}): T
         })
     })
 
-  if (toolIsEnabled(hooks, 'open_app'))
+  if (!unattended && toolIsEnabled(hooks, 'open_app'))
     tools.open_app = tool({
       description:
         'Open an app, file, or web URL using the operating system. Pass an app name, a file path, or an https URL. Do not pass shell flags or commands.',
@@ -443,7 +463,7 @@ export function createAgentTools(soul: SoulStore, hooks: AgentToolHooks = {}): T
       }
     })
 
-  if (toolIsEnabled(hooks, 'run_command'))
+  if (!unattended && toolIsEnabled(hooks, 'run_command'))
     tools.run_command = tool({
       description: runCommandDescription(getToolApprovalMode(hooks, 'run_command')),
       inputSchema: z.object({
@@ -469,7 +489,7 @@ export function createAgentTools(soul: SoulStore, hooks: AgentToolHooks = {}): T
   return tools
 }
 
-function getToolApprovalMode(hooks: AgentToolHooks, toolId: SystemToolId): ToolApprovalMode {
+function getToolApprovalMode(hooks: AgentToolHooks, toolId: ApprovalToolId): ToolApprovalMode {
   return hooks.toolApprovals?.[toolId] ?? DEFAULT_TOOL_APPROVALS[toolId]
 }
 
@@ -490,6 +510,7 @@ async function requestToolApproval(
   toolId: SystemToolId,
   request: ApprovalRequest
 ): Promise<boolean> {
+  if (hooks.profile === 'unattended') return true
   if (getToolApprovalMode(hooks, toolId) !== 'confirm') return true
   return hooks.requestApproval?.(request) ?? false
 }

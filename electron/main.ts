@@ -1,12 +1,15 @@
 import {
   app,
   clipboard,
+  dialog,
   shell,
   BrowserWindow,
   ipcMain,
   nativeImage,
   nativeTheme,
   Menu,
+  Notification,
+  powerMonitor,
   screen,
   Tray,
   globalShortcut
@@ -17,6 +20,8 @@ import { dirname, join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { agentStatusLabel, INITIAL_AGENT_STATUS, type AgentStatus } from '@/lib/agent'
 import { CHATS_SNAPSHOT_CHANNEL, type ChatSearchOptions, type ChatsSnapshot } from '@/lib/chats'
+import { EMPTY_TASKS_SNAPSHOT, TASKS_OPEN_RUN_CHANNEL, TASKS_SNAPSHOT_CHANNEL, type TasksSnapshot } from '@/lib/tasks'
+import type { SaveTextInput } from '@/lib/export-text'
 import {
   hasSpokenText,
   INITIAL_CONVERSATION_STATUS,
@@ -35,8 +40,8 @@ import {
   DEFAULT_THEME,
   SETTINGS_SNAPSHOT_CHANNEL,
   TOOL_APPROVAL_PRESETS,
+  isApprovalToolId,
   isFlyoverInputMode,
-  isSystemToolId,
   isToolApprovalMode,
   isToolApprovalPreset,
   toAppearanceSnapshot,
@@ -61,6 +66,10 @@ import { FLYOVER_WINDOW_SIZES, getFlyoverContentLayout } from '@/lib/flyover-lay
 import type { FlyoverSnapshot } from '@/lib/flyover'
 import { AgentService } from './agent/service'
 import { ChatStore } from './chats/store'
+import { seedSmokeTask, TaskRunner } from './tasks/runner'
+import { TaskStore } from './tasks/store'
+import { parseTaskId, parseTaskPatch } from './tasks/patch'
+import { saveTextWithDialog, copyTextToClipboard } from './system/save-text'
 import { AudioRouter } from './audio-router'
 import { ConversationController } from './conversation/controller'
 import { LlmService } from './llm/service'
@@ -128,7 +137,10 @@ let secretStore: SecretStore | null = null
 let soulStore: SoulStore | null = null
 let llmService: LlmService | null = null
 let agentService: AgentService | null = null
+let scheduledAgent: AgentService | null = null
 let chatStore: ChatStore | null = null
+let taskStore: TaskStore | null = null
+let taskRunner: TaskRunner | null = null
 let conversation: ConversationController | null = null
 let wakeWordService: WakeWordService | null = null
 let speechService: SpeechService | null = null
@@ -180,6 +192,38 @@ function showMainWindow(openSettings = false): void {
   window.show()
   window.focus()
   if (openSettings) window.webContents.send('app:open-settings')
+}
+
+function showTaskNotification(body: string, meta?: { title?: string; runId?: string }): void {
+  if (!Notification.isSupported()) return
+  const notification = new Notification({
+    title: meta?.title?.trim() || 'Micky',
+    body
+  })
+  notification.on('click', () => {
+    showMainWindow()
+    if (meta?.runId && mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(TASKS_OPEN_RUN_CHANNEL, meta.runId)
+    }
+  })
+  notification.show()
+}
+
+async function runScheduledTask(task: { prompt: string }): Promise<string> {
+  const agent = scheduledAgent
+  if (!agent) throw new Error('عامل زمان‌دار در دسترس نیست.')
+  const outcome = await agent.respond(task.prompt, {
+    responseSurface: 'scheduled',
+    speechEnabled: false
+  })
+  const status = agent.getStatus()
+  const text = status.turn?.replyText?.trim() || status.error?.trim() || ''
+  agent.reset()
+  if (outcome === 'aborted') throw new Error('انجام این کار قطع شد.')
+  if (status.phase === 'error' || !text) {
+    throw new Error(text || 'نتیجه‌ای برنگشت.')
+  }
+  return text
 }
 
 function setMainWindowMode(mode: MainWindowMode): void {
@@ -392,6 +436,18 @@ function emitChatsSnapshot(): ChatsSnapshot {
   return snapshot
 }
 
+function getTasksSnapshot(): TasksSnapshot {
+  return taskStore?.getSnapshot() ?? EMPTY_TASKS_SNAPSHOT
+}
+
+function emitTasksSnapshot(): TasksSnapshot {
+  const snapshot = getTasksSnapshot()
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(TASKS_SNAPSHOT_CHANNEL, snapshot)
+  }
+  return snapshot
+}
+
 function registerIpc(): void {
   ipcMain.handle('app:set-window-mode', (event, mode: unknown) => {
     if (
@@ -401,6 +457,24 @@ function registerIpc(): void {
       throw new Error('Invalid window mode.')
     }
     setMainWindowMode(mode)
+  })
+
+  ipcMain.handle('app:save-text', async (event, input: unknown) => {
+    if (!isTrustedSender(event.sender) || !isSaveTextInput(input)) {
+      throw new Error('Invalid save request.')
+    }
+    return saveTextWithDialog({
+      browserWindow: mainWindow,
+      content: input.content,
+      defaultName: input.defaultName
+    })
+  })
+
+  ipcMain.handle('app:copy-text', (event, text: unknown) => {
+    if (!isTrustedSender(event.sender) || typeof text !== 'string') {
+      throw new Error('Invalid copy request.')
+    }
+    return copyTextToClipboard(text)
   })
 
   ipcMain.handle('app-update:get-snapshot', (event) => {
@@ -602,6 +676,30 @@ function registerIpc(): void {
     conversation?.clearChats()
     return getChatsSnapshot()
   })
+  ipcMain.handle('tasks:get-snapshot', (event) => {
+    if (!isTrustedSender(event.sender)) throw new Error('Untrusted tasks request.')
+    return getTasksSnapshot()
+  })
+  ipcMain.handle('tasks:update', (event, id: unknown, patch: unknown) => {
+    if (!isTrustedSender(event.sender)) throw new Error('Untrusted task update request.')
+    const taskId = parseTaskId(id)
+    const parsed = parseTaskPatch(patch)
+    if (!taskId || !parsed) throw new Error('Invalid task update.')
+    try {
+      const updated = taskStore?.update(taskId, parsed)
+      if (!updated) throw new Error('یادآوری پیدا نشد.')
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Invalid task update.')
+    }
+    return emitTasksSnapshot()
+  })
+  ipcMain.handle('tasks:delete', (event, id: unknown) => {
+    if (!isTrustedSender(event.sender)) throw new Error('Untrusted task deletion request.')
+    const taskId = parseTaskId(id)
+    if (!taskId) throw new Error('Invalid task deletion.')
+    taskStore?.delete(taskId)
+    return emitTasksSnapshot()
+  })
   ipcMain.handle('agent:get-status', (event) => {
     if (!isTrustedSender(event.sender)) throw new Error('Untrusted agent status request.')
     return agentService?.getStatus() ?? INITIAL_AGENT_STATUS
@@ -679,7 +777,7 @@ function registerIpc(): void {
     return snapshot
   })
   ipcMain.handle('settings:set-tool-approval', async (event, toolId: unknown, mode: unknown) => {
-    if (!isTrustedSender(event.sender) || !isSystemToolId(toolId) || !isToolApprovalMode(mode)) {
+    if (!isTrustedSender(event.sender) || !isApprovalToolId(toolId) || !isToolApprovalMode(mode)) {
       throw new Error('Invalid tool approval setting.')
     }
     const current = settingsStore?.get()
@@ -699,8 +797,13 @@ function registerIpc(): void {
     if (!isTrustedSender(event.sender) || !isToolApprovalPreset(preset)) {
       throw new Error('Invalid tool approval preset.')
     }
+    const current = settingsStore?.get()
     const settings = await settingsStore?.update({
-      toolApprovals: { ...TOOL_APPROVAL_PRESETS[preset] }
+      toolApprovals: {
+        ...TOOL_APPROVAL_PRESETS[preset],
+        manage_tasks:
+          current?.toolApprovals.manage_tasks ?? TOOL_APPROVAL_PRESETS[preset].manage_tasks
+      }
     })
     const snapshot = settings ? toSettingsSnapshot(settings, shortcutError) : null
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1723,6 +1826,22 @@ app.whenReady().then(async () => {
   })
   await skillService.refresh()
   chatStore = new ChatStore(app.getPath('userData'), { onChange: emitChatsSnapshot })
+  taskStore = new TaskStore(app.getPath('userData'), {
+    onChange: () => {
+      taskRunner?.reschedule()
+      emitTasksSnapshot()
+    }
+  })
+  const recovered = taskStore.recoverInterrupted()
+  if (recovered.tasks > 0 || recovered.runs > 0) {
+    console.log(`[tasks] recovered ${recovered.tasks} stuck task(s), ${recovered.runs} run(s)`)
+  }
+  if (process.env.MICKY_SEED_TASK === '1') seedSmokeTask(taskStore)
+  taskRunner = new TaskRunner(taskStore, {
+    notify: showTaskNotification,
+    runJob: runScheduledTask
+  })
+  powerMonitor.on('resume', () => taskRunner?.resume())
   llmService = new LlmService({
     settings: settingsStore,
     secrets: secretStore,
@@ -1751,6 +1870,7 @@ app.whenReady().then(async () => {
     llm: llmService,
     soul: soulStore,
     chats: chatStore,
+    tasks: taskStore ?? undefined,
     skills: skillService,
     webSearch: webSearchService,
     getWindow: () => mainWindow,
@@ -1758,6 +1878,17 @@ app.whenReady().then(async () => {
     lookAtScreen: (question, abortSignal) => visionService!.inspect(question, abortSignal),
     onStatusChange: handleAgentStatus
   })
+  scheduledAgent = new AgentService({
+    settings: settingsStore,
+    llm: llmService,
+    soul: soulStore,
+    chats: chatStore,
+    skills: skillService,
+    webSearch: webSearchService,
+    getWindow: () => null,
+    toolProfile: 'unattended'
+  })
+  taskRunner.start()
   conversation = new ConversationController({
     settings: settingsStore,
     llm: llmService,
@@ -1863,21 +1994,31 @@ app.on('before-quit', () => {
   dictationController?.cancel()
   conversation?.dispose()
   agentService?.abort()
+  scheduledAgent?.abort()
   wakeWordService?.dispose()
   speechService?.dispose()
   ttsService?.dispose()
   flyoverService?.dispose()
+  taskRunner?.stop()
+  taskStore?.close()
   chatStore?.close()
   tray?.destroy()
   tray = null
   conversation = null
   agentService = null
+  scheduledAgent = null
+  taskRunner = null
+  taskStore = null
   chatStore = null
   wakeWordService = null
   speechService = null
   ttsService = null
   audioRouter = null
 })
+
+function isSaveTextInput(value: unknown): value is SaveTextInput {
+  return isRecord(value) && typeof value.content === 'string' && typeof value.defaultName === 'string'
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
