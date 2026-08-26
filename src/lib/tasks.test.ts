@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { formatTaskWhen, taskKindLabel, taskStatusLabel, excerptTaskResult } from './tasks'
+import { formatTaskWhen, normalizeTaskAttachmentName, taskKindLabel, taskStatusLabel, excerptTaskResult } from './tasks'
 
 test('formats the next run in the task timezone', () => {
   assert.equal(
@@ -24,4 +24,10 @@ test('uses short Persian labels for task kind and status', () => {
 test('excerpts a run result for notifications', () => {
   assert.equal(excerptTaskResult('## خلاصه\n\nهوا خوب است'), 'خلاصه هوا خوب است')
   assert.equal(excerptTaskResult('کوتاه'), 'کوتاه')
+})
+
+test('normalizes attachment names onto a safe md/csv/txt file', () => {
+  assert.equal(normalizeTaskAttachmentName('هزینه‌ها', 'csv'), 'هزینه‌ها.csv')
+  assert.equal(normalizeTaskAttachmentName('notes.MD', 'md'), 'notes.md')
+  assert.equal(normalizeTaskAttachmentName('../secret.sh', 'txt'), 'secret.sh.txt')
 })

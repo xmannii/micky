@@ -28,16 +28,16 @@ The assistant flyover input can also be configured in `تنظیمات → میا
 
 ## Reminders and later jobs
 
-Ask Micky in conversation to remind them or to do work at a time. Micky's own scheduler saves these; do not describe launchd, crontab, Calendar, Shortcuts, or a helper script as the way it schedules work, and never say the scheduler is unfinished. A reminder only notifies with the saved text. A job (`کار`) runs later without interrupting the live chat, then stores a written result in `کارها`, not a file Micky invents.
+Ask Micky in conversation to remind them or to do work at a time. Micky's own scheduler saves these; do not describe launchd, crontab, Calendar, Shortcuts, or a helper script as the way it schedules work, and never say the scheduler is unfinished. After answering, Micky may offer once to save a reminder or job when this conversation clearly implies later or repeating work; it waits for a yes and does not create from a hunch or by searching old chats. A reminder only notifies with the saved text. A job (`کار`) runs later without interrupting the live chat, then stores a written result in `کارها`, not a file Micky invents. If the job produces a table or draft, it may also attach `.md`, `.csv`, or `.txt` files on that same run; those show up under the writeup in `کارها`.
 
-Open the expanded side panel and choose `کارها` to read job results. Clicking the job notification opens that result. Saved items can be paused, edited, or deleted in `تنظیمات → یادآوری‌ها`. Jobs fire only while Micky is running (including hidden in the tray) and need a configured brain. Results are not written into the live conversation.
+Open the expanded side panel and choose `کارها` to read job results. Clicking the job notification opens that result. Saved items can be paused, edited, or deleted in `تنظیمات → زمان‌بندی`. Jobs fire only while Micky is running (including hidden in the tray) and need a configured brain. Results are not written into the live conversation.
 
 ## Agent modules
 
 - `آشنایی`: Micky's personality, user profile, and durable memory. These are local Markdown layers and are included selectively in its context.
 - `مهارت‌ها`: procedural guides. Micky sees only enabled skill names and descriptions, then loads a matching guide on demand.
-- `یادآوری‌ها`: local reminders and later jobs, saved from conversation. Reminders fire as notifications. Jobs run an isolated read-only agent and store a written result in `کارها`.
-- `ابزارها و دسترسی‌ها`: guarded file actions, app opening, commands, reminder create/edit policy, and direct screen inspection. Sensitive actions require confirmation or remain blocked.
+- `زمان‌بندی`: local reminders and later jobs, saved from conversation. Reminders fire as notifications. Jobs run an isolated read-only agent, store a written result in `کارها`, and may attach markdown, CSV, or text files on that run.
+- `ابزارها و دسترسی‌ها`: guarded file actions, app opening, commands, schedule create/edit policy, and direct screen inspection. Sensitive actions require confirmation or remain blocked.
 - `جستجوی وب`: optional Exa, Firecrawl, or local Google search. Reading a known public page is separate from searching.
 - `گفتگوها`: local SQLite conversation storage and full-text search. It can be disabled or cleared.
 
@@ -48,7 +48,7 @@ Open the expanded side panel and choose `کارها` to read job results. Clicki
 - Agent requests go to the selected language-model endpoint, including isolated scheduled jobs. Ollama and LM Studio can remain local; OpenRouter and remote custom endpoints are cloud services.
 - Spoken reply text goes to Gemini or ElevenLabs only when that TTS service is enabled.
 - Screen content is captured only after a direct request and the disclosure flow, then sent to the chosen vision-capable model. Micky does not retain the capture.
-- Conversation history, personality, profile, memory, reminders, and job results are stored locally.
+- Conversation history, personality, profile, memory, reminders, job results, and job attachments are stored locally.
 - There is no analytics or telemetry in Micky.
 
 Do not describe Micky as fully offline merely because speech recognition is local. A setup is cloud-free only when its language model is local, cloud TTS is off, web search is not used, no screen request is sent to a cloud vision model, and no scheduled job is sent to a cloud brain.

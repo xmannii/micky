@@ -149,8 +149,9 @@ test('runs a due job, stores the result, and notifies an excerpt', async (t) => 
     notify: (body, meta) => notified.push({ body, runId: meta?.runId }),
     log: () => {},
     checkIntervalMs: 1_000,
-    runJob: async (task) => {
+    runJob: async (task, runId) => {
       prompts.push(task.prompt)
+      assert.equal(typeof runId, 'string')
       return '## خلاصه\nهوا خوب است'
     }
   })

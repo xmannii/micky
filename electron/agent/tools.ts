@@ -17,7 +17,7 @@ import { fetchCleanWebpage } from '../system/web-fetch'
 import type { SkillService } from '../skills/service'
 import type { WebSearchService } from '../web-search/service'
 import type { TaskStore } from '../tasks/store'
-import { registerTaskTools } from '../tasks/agent-tools'
+import { registerAttachFileTool, registerTaskTools } from '../tasks/agent-tools'
 import {
   DEFAULT_TOOL_APPROVALS,
   type ApprovalToolId,
@@ -42,6 +42,7 @@ export type AgentToolHooks = {
   lookAtScreen?: (question: string) => Promise<string>
   skills?: SkillService
   webSearch?: WebSearchService
+  taskRunId?: string
 }
 
 export function createAgentTools(soul: SoulStore, hooks: AgentToolHooks = {}): ToolSet {
@@ -189,6 +190,8 @@ export function createAgentTools(soul: SoulStore, hooks: AgentToolHooks = {}): T
 
     registerTaskTools(tools, hooks)
   }
+
+  registerAttachFileTool(tools, hooks)
 
   if (hooks.skills) {
     tools.load_skill = tool({

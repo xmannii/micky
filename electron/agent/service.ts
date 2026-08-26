@@ -43,6 +43,7 @@ type AgentRespondOptions = {
   responseSurface?: AgentResponseSurface
   speechEnabled?: boolean
   sessionId?: string
+  taskRunId?: string
 }
 
 export class AgentService {
@@ -137,7 +138,8 @@ export class AgentService {
       const screenCaptureAllowed = unattended ? false : hasExplicitScreenIntent(text)
       const tools = createAgentTools(this.options.soul, {
         chats: this.options.chats,
-        tasks: unattended ? undefined : this.options.tasks,
+        tasks: this.options.tasks,
+        taskRunId: unattended ? options.taskRunId : undefined,
         profile: this.options.toolProfile ?? 'live',
         systemToolsEnabled: settings.systemToolsEnabled !== false,
         toolApprovals: settings.toolApprovals,

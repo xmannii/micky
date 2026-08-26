@@ -22,7 +22,7 @@ export type TaskRunnerOptions = {
   log?: (message: string) => void
   checkIntervalMs?: number
   graceMs?: number
-  runJob?: (task: ScheduledTask) => Promise<string>
+  runJob?: (task: ScheduledTask, runId: string) => Promise<string>
 }
 
 export class TaskRunner {
@@ -34,7 +34,7 @@ export class TaskRunner {
   #log: (message: string) => void
   #checkIntervalMs: number
   #graceMs: number
-  #runJob?: (task: ScheduledTask) => Promise<string>
+  #runJob?: (task: ScheduledTask, runId: string) => Promise<string>
   #timer: unknown = null
   #started = false
   #jobs: Promise<void> = Promise.resolve()
@@ -145,7 +145,7 @@ export class TaskRunner {
         return
       }
       this.#log(`[tasks] running ${task.name}`)
-      const text = (await this.#runJob(task)).trim()
+      const text = (await this.#runJob(task, runId)).trim()
       const result = text || 'نتیجه‌ای برنگشت.'
       this.#store.finishTaskRun(runId, { status: 'ok', result, now: this.#now() })
       if (task.reportMode === 'notify') {

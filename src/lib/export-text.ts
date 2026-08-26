@@ -24,9 +24,16 @@ export function sanitizeExportFileName(name: string, fallback = 'micky'): string
   return trimmed || fallback
 }
 
-export function withExportExtension(name: string, ext: 'md' | 'txt' = 'md'): string {
-  const base = sanitizeExportFileName(name).replace(/\.(md|txt)$/i, '')
+export function withExportExtension(name: string, ext: 'md' | 'txt' | 'csv' = 'md'): string {
+  const base = sanitizeExportFileName(name).replace(/\.(md|txt|csv)$/i, '')
   return `${base}.${ext}`
+}
+
+export function exportExtensionOf(name: string): 'md' | 'txt' | 'csv' {
+  const ext = fileExtension(name).toLowerCase()
+  if (ext === '.csv') return 'csv'
+  if (ext === '.txt') return 'txt'
+  return 'md'
 }
 
 export function resolveExportPath(filePath: string): string | null {
@@ -34,7 +41,7 @@ export function resolveExportPath(filePath: string): string | null {
   if (!trimmed || trimmed.includes('\0')) return null
   const withExt = fileExtension(trimmed) ? trimmed : `${trimmed}.md`
   const ext = fileExtension(withExt).toLowerCase()
-  if (ext !== '.md' && ext !== '.txt') return null
+  if (ext !== '.md' && ext !== '.txt' && ext !== '.csv') return null
   return withExt
 }
 

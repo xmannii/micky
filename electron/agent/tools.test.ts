@@ -391,7 +391,40 @@ test('unattended profile keeps reads and skips writes, confirms, and task tools'
   assert.equal('open_app' in tools, false)
   assert.equal('look_at_screen' in tools, false)
   assert.equal('create_task' in tools, false)
+  assert.equal('attach_file' in tools, false)
   assert.equal('end_conversation' in tools, false)
   assert.equal('recall' in tools, true)
   assert.equal('read_file' in tools, true)
+})
+
+test('unattended jobs can attach md csv or txt to the current run', async (t) => {
+  const { store, tools } = await withTaskTools(t, { profile: 'unattended' })
+  assert.equal('attach_file' in tools, false)
+  assert.equal('create_task' in tools, false)
+
+  const task = store.create({
+    name: 'digest',
+    kind: 'run',
+    prompt: 'csv',
+    scheduleType: 'once',
+    runAt: Date.parse('2026-08-26T18:00:00.000Z'),
+    timezone: 'UTC'
+  })
+  const run = store.startRun(task.id)
+  const jobTools = createAgentTools({} as never, {
+    profile: 'unattended',
+    tasks: store,
+    taskRunId: run!.id,
+    systemToolsEnabled: false
+  })
+  assert.equal('attach_file' in jobTools, true)
+  assert.equal('write_file' in jobTools, false)
+  const attached = (await executable(jobTools.attach_file).execute({
+    name: 'هزینه‌ها',
+    kind: 'csv',
+    content: 'item,amount\ntea,2'
+  })) as { attached: boolean; name: string }
+  assert.equal(attached.attached, true)
+  assert.equal(attached.name, 'هزینه‌ها.csv')
+  assert.equal(store.getRun(run!.id)?.attachments[0]?.name, 'هزینه‌ها.csv')
 })

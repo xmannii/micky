@@ -576,6 +576,25 @@
     text-align: start;
   }
 
+  .task-run-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    padding: 0 1rem 1.2rem;
+  }
+
+  .task-run-file {
+    display: flex;
+    min-width: 0;
+    max-width: 100%;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.1rem 0.2rem 0.1rem 0.55rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--foreground) 6%, transparent);
+    font-size: 0.62rem;
+  }
+
   .conversation-panel-collapse {
     position: absolute;
     z-index: 20;

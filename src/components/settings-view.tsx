@@ -143,7 +143,7 @@ const TAB_COPY: Record<SettingsTab, { title: string; description: string }> = {
     description: 'راهنماهای نصب‌شده‌ای که میکی فقط هنگام نیاز بارگذاری می‌کند'
   },
   tasks: {
-    title: 'یادآوری‌ها',
+    title: 'زمان‌بندی',
     description: 'چیزهایی که میکی سر وقت بهت می‌گه یا انجام می‌ده'
   },
   tools: {
@@ -177,7 +177,7 @@ const CORE_SETTINGS_TABS = [
 const CAPABILITY_SETTINGS_TABS = [
   { id: 'soul', label: 'شخصیت', icon: Sparkles },
   { id: 'skills', label: 'مهارت‌ها', icon: Puzzle },
-  { id: 'tasks', label: 'یادآوری‌ها', icon: Clock },
+  { id: 'tasks', label: 'زمان‌بندی', icon: Clock },
   { id: 'tools', label: 'ابزارها', icon: ShieldCheck },
   { id: 'search', label: 'جستجوی وب', icon: Globe2 }
 ] satisfies ReadonlyArray<{ id: SettingsTab; label: string; icon: typeof Ear }>

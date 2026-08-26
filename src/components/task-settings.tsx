@@ -59,16 +59,16 @@ export function TaskSettings({ snapshot }: { snapshot: TasksSnapshot | null }): 
     <div className="flex flex-col gap-3">
       <Card size="sm" className="bg-card/30">
         <CardHeader>
-          <CardTitle>یادآوری‌های ذخیره‌شده</CardTitle>
+          <CardTitle>زمان‌بندی‌های ذخیره‌شده</CardTitle>
           <CardDescription>
-            از گفتگو ساخته می‌شوند. اینجا می‌توانی ببینی، متوقف کنی یا عوض کنی
+            از گفتگو ساخته می‌شوند. یادآوری فقط خبر می‌دهد؛ کار را میکی سر وقت انجام می‌دهد
           </CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-[0.68rem] leading-5 text-muted-foreground">
             {tasks.length > 0
               ? `${tasks.length.toLocaleString('fa-IR')} مورد، ${activeCount.toLocaleString('fa-IR')} فعال`
-              : 'هنوز چیزی ذخیره نشده. از میکی بخواه یک یادآوری بگذارد.'}
+              : 'هنوز چیزی ذخیره نشده. از میکی بخواه سر وقت بهت بگوید یا کاری انجام دهد.'}
           </p>
         </CardContent>
       </Card>
@@ -79,8 +79,10 @@ export function TaskSettings({ snapshot }: { snapshot: TasksSnapshot | null }): 
             <EmptyMedia variant="icon">
               <Clock />
             </EmptyMedia>
-            <EmptyTitle>یادآوری‌ای نیست</EmptyTitle>
-            <EmptyDescription>مثلاً بگو هر روز ساعت ۲۱ به من یاد بده نرمش کنم</EmptyDescription>
+            <EmptyTitle>زمان‌بندی‌ای نیست</EmptyTitle>
+            <EmptyDescription>
+              مثلاً بگو هر روز ساعت ۲۱ به من یاد بده نرمش کنم، یا هر شب خبرها را خلاصه کن
+            </EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -346,7 +348,7 @@ function TaskEditor({ task }: { task: TaskView }): React.JSX.Element {
           />
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>این یادآوری حذف شود؟</AlertDialogTitle>
+              <AlertDialogTitle>این {taskKindLabel(task.kind)} حذف شود؟</AlertDialogTitle>
               <AlertDialogDescription>
                 «{task.name}» از روی همین دستگاه پاک می‌شود.
               </AlertDialogDescription>

@@ -209,12 +209,13 @@ function showTaskNotification(body: string, meta?: { title?: string; runId?: str
   notification.show()
 }
 
-async function runScheduledTask(task: { prompt: string }): Promise<string> {
+async function runScheduledTask(task: { prompt: string }, runId: string): Promise<string> {
   const agent = scheduledAgent
   if (!agent) throw new Error('عامل زمان‌دار در دسترس نیست.')
   const outcome = await agent.respond(task.prompt, {
     responseSurface: 'scheduled',
-    speechEnabled: false
+    speechEnabled: false,
+    taskRunId: runId
   })
   const status = agent.getStatus()
   const text = status.turn?.replyText?.trim() || status.error?.trim() || ''
@@ -680,6 +681,12 @@ function registerIpc(): void {
     if (!isTrustedSender(event.sender)) throw new Error('Untrusted tasks request.')
     return getTasksSnapshot()
   })
+  ipcMain.handle('tasks:get-attachment', (event, id: unknown) => {
+    if (!isTrustedSender(event.sender)) throw new Error('Untrusted tasks request.')
+    const attachmentId = parseTaskId(id)
+    if (!attachmentId) throw new Error('Invalid attachment.')
+    return taskStore?.getAttachment(attachmentId) ?? null
+  })
   ipcMain.handle('tasks:update', (event, id: unknown, patch: unknown) => {
     if (!isTrustedSender(event.sender)) throw new Error('Untrusted task update request.')
     const taskId = parseTaskId(id)
@@ -687,7 +694,7 @@ function registerIpc(): void {
     if (!taskId || !parsed) throw new Error('Invalid task update.')
     try {
       const updated = taskStore?.update(taskId, parsed)
-      if (!updated) throw new Error('یادآوری پیدا نشد.')
+      if (!updated) throw new Error('زمان‌بندی پیدا نشد.')
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : 'Invalid task update.')
     }
@@ -1883,6 +1890,7 @@ app.whenReady().then(async () => {
     llm: llmService,
     soul: soulStore,
     chats: chatStore,
+    tasks: taskStore ?? undefined,
     skills: skillService,
     webSearch: webSearchService,
     getWindow: () => null,

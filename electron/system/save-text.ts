@@ -1,6 +1,7 @@
 import { clipboard, dialog, type BrowserWindow } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import {
+  exportExtensionOf,
   resolveExportPath,
   SAVE_TEXT_MAX,
   withExportExtension,
@@ -22,12 +23,19 @@ export async function saveTextWithDialog(input: {
   const content = input.content
   if (!content.trim() || content.length > SAVE_TEXT_MAX) return { saved: false }
 
+  const ext = exportExtensionOf(input.defaultName)
   const options: Electron.SaveDialogOptions = {
-    defaultPath: withExportExtension(input.defaultName),
-    filters: [
-      { name: 'Markdown', extensions: ['md'] },
-      { name: 'Text', extensions: ['txt'] }
-    ]
+    defaultPath: withExportExtension(input.defaultName, ext),
+    filters:
+      ext === 'csv'
+        ? [
+            { name: 'CSV', extensions: ['csv'] },
+            { name: 'Text', extensions: ['txt'] }
+          ]
+        : [
+            { name: 'Markdown', extensions: ['md'] },
+            { name: 'Text', extensions: ['txt'] }
+          ]
   }
   const window = input.browserWindow && !input.browserWindow.isDestroyed() ? input.browserWindow : undefined
   const result = window

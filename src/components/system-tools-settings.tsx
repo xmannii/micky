@@ -140,7 +140,7 @@ export function SystemToolsSettings({
     <div className="flex flex-col gap-3">
       <Card size="sm" className="bg-card/30">
         <CardHeader>
-          <CardTitle>یادآوری‌ها</CardTitle>
+          <CardTitle>زمان‌بندی</CardTitle>
           <CardDescription>
             یادآوری و کارهای زمان‌دار را میکی از گفتگو می‌سازد؛ پیش‌فرض بدون پرسیدن ذخیره می‌شوند
           </CardDescription>
@@ -151,7 +151,7 @@ export function SystemToolsSettings({
               <Clock aria-hidden="true" />
             </span>
             <FieldContent>
-              <FieldLabel htmlFor="tool-policy-manage_tasks">ساخت و تغییر یادآوری</FieldLabel>
+              <FieldLabel htmlFor="tool-policy-manage_tasks">ساخت و تغییر زمان‌بندی</FieldLabel>
               <FieldDescription className="text-[0.68rem] leading-5">
                 {taskModeDescription(settings.toolApprovals.manage_tasks)}
               </FieldDescription>
@@ -168,7 +168,7 @@ export function SystemToolsSettings({
                 id="tool-policy-manage_tasks"
                 size="sm"
                 className="w-30 shrink-0"
-                aria-label="اجازه یادآوری‌ها"
+                aria-label="اجازه زمان‌بندی"
               >
                 <SelectValue>{modeLabel(settings.toolApprovals.manage_tasks)}</SelectValue>
               </SelectTrigger>
@@ -333,6 +333,6 @@ function modeLabel(mode: ToolApprovalMode): string {
 function taskModeDescription(mode: ToolApprovalMode): string {
   if (mode === 'confirm') return 'پیش از ساخت، ویرایش یا حذف از تو اجازه می‌گیرد'
   if (mode === 'smart') return 'ساخت و ویرایش مستقیم است؛ برای حذف می‌پرسد'
-  if (mode === 'blocked') return 'ابزار یادآوری‌ها خاموش است'
+  if (mode === 'blocked') return 'ابزار زمان‌بندی خاموش است'
   return 'ساخت، ویرایش و حذف بدون پرسیدن انجام می‌شود'
 }

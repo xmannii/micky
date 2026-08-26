@@ -58,7 +58,8 @@ const TOOL_ICON: Record<string, LucideIcon> = {
   list_tasks: Clock,
   create_task: Clock,
   update_task: Clock,
-  delete_task: Clock
+  delete_task: Clock,
+  attach_file: FileText
 }
 
 function ApprovalCard({

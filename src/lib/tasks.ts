@@ -21,6 +21,10 @@ export const TASK_SEED_ID = 'm0-seed'
 export const TASK_RUN_RESULT_MAX = 12_000
 export const TASK_RUNS_PER_TASK = 20
 export const TASK_RUNS_SNAPSHOT_LIMIT = 40
+export const TASK_ATTACHMENT_KINDS = ['md', 'csv', 'txt'] as const
+export type TaskAttachmentKind = (typeof TASK_ATTACHMENT_KINDS)[number]
+export const TASK_ATTACHMENT_MAX = 80_000
+export const TASK_ATTACHMENTS_PER_RUN = 4
 export const TASKS_SNAPSHOT_CHANNEL = 'tasks:snapshot'
 export const TASKS_OPEN_RUN_CHANNEL = 'tasks:open-run'
 
@@ -99,6 +103,21 @@ export function isTaskRunStatus(value: unknown): value is TaskRunStatus {
   return typeof value === 'string' && (TASK_RUN_STATUSES as readonly string[]).includes(value)
 }
 
+export function isTaskAttachmentKind(value: unknown): value is TaskAttachmentKind {
+  return typeof value === 'string' && (TASK_ATTACHMENT_KINDS as readonly string[]).includes(value)
+}
+
+export function normalizeTaskAttachmentName(name: string, kind: TaskAttachmentKind): string {
+  const trimmed = name
+    .replace(/[\\/:*?"<>|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^\.+/, '')
+    .slice(0, 60)
+  const base = (trimmed || 'file').replace(/\.(md|txt|csv)$/i, '')
+  return `${base.trim() || 'file'}.${kind}`
+}
+
 export function systemTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
 }
@@ -137,6 +156,18 @@ function toIso(value: number | null): string | null {
   return value == null ? null : new Date(value).toISOString()
 }
 
+export type TaskAttachmentMeta = {
+  id: string
+  name: string
+  kind: TaskAttachmentKind
+  bytes: number
+}
+
+export type TaskAttachment = TaskAttachmentMeta & {
+  runId: string
+  content: string
+}
+
 export type TaskRun = {
   id: string
   taskId: string
@@ -145,6 +176,7 @@ export type TaskRun = {
   finishedAt: number | null
   status: TaskRunStatus
   result: string
+  attachments: TaskAttachmentMeta[]
 }
 
 export type TaskRunView = {
@@ -155,6 +187,7 @@ export type TaskRunView = {
   finishedAt: string | null
   status: TaskRunStatus
   result: string
+  attachments: TaskAttachmentMeta[]
 }
 
 export function toTaskRunView(run: TaskRun): TaskRunView {
@@ -165,7 +198,8 @@ export function toTaskRunView(run: TaskRun): TaskRunView {
     startedAt: toIso(run.startedAt) ?? new Date(run.startedAt).toISOString(),
     finishedAt: toIso(run.finishedAt),
     status: run.status,
-    result: run.result
+    result: run.result,
+    attachments: run.attachments
   }
 }
 

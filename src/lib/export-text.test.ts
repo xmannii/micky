@@ -16,6 +16,7 @@ test('sanitizes export names and keeps a markdown default', () => {
 test('only allows markdown or text save paths', () => {
   assert.equal(resolveExportPath('/tmp/news.md'), '/tmp/news.md')
   assert.equal(resolveExportPath('/tmp/news.txt'), '/tmp/news.txt')
+  assert.equal(resolveExportPath('/tmp/news.csv'), '/tmp/news.csv')
   assert.equal(resolveExportPath('/tmp/news'), '/tmp/news.md')
   assert.equal(resolveExportPath('/tmp/news.sh'), null)
   assert.equal(resolveExportPath(''), null)

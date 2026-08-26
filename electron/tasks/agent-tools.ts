@@ -1,11 +1,13 @@
 import { tool, type ToolSet } from 'ai'
 import { z } from 'zod'
 import {
+  TASK_ATTACHMENT_MAX,
   excerptTaskResult,
   isTaskKind,
   isTaskReportMode,
   isTaskStatus,
   systemTimeZone,
+  taskKindLabel,
   toTaskView,
   type TaskScheduleType
 } from '@/lib/tasks'
@@ -51,7 +53,8 @@ export function registerTaskTools(tools: ToolSet, hooks: TaskToolHooks): void {
               ? {
                   status: run.status,
                   at: new Date(run.startedAt).toISOString(),
-                  excerpt: excerptTaskResult(run.result, 280)
+                  excerpt: excerptTaskResult(run.result, 280),
+                  attachments: run.attachments.map((file) => file.name)
                 }
               : null
           }
@@ -62,21 +65,21 @@ export function registerTaskTools(tools: ToolSet, hooks: TaskToolHooks): void {
 
   tools.create_task = tool({
     description:
-      "Create a local scheduled reminder or job. This is Micky's scheduler; never substitute launchd, crontab, Calendar, Shortcuts, write_file, or run_command. Use kind remind when they want to be told or nudged; prompt is the notification text. Use kind run when they want Micky to do work later (summarize, check, look up, daily news); prompt is the full unattended job instructions. Kind defaults to remind — always set kind run for jobs. Recurring work needs a 5-field cron (minute hour day-of-month month day-of-week). Do not fetch or do the job in this turn unless they also asked for it now. Claim success only after this tool returns. Convert spoken Persian times with the local clock: one-shot tasks need runAt as ISO-8601. Store timezone explicitly. Do not ask the user to type.",
+      "Create a local scheduled reminder or job. This is Micky's scheduler; never substitute launchd, crontab, Calendar, Shortcuts, write_file, or run_command. Use after they ask to be reminded or to do work later, or after they accept an offer you just made — never from a hunch. Use kind remind when they want to be told or nudged; prompt is the notification text. Use kind run when they want Micky to do work later (summarize, check, look up, daily news, a csv or markdown file); prompt is the full unattended job instructions, including attach_file when a downloadable file should sit on that run. Kind defaults to remind — always set kind run for jobs. Recurring work needs a 5-field cron (minute hour day-of-month month day-of-week). Do not fetch or do the job in this turn unless they also asked for it now. Claim success only after this tool returns. Convert spoken Persian times with the local clock: one-shot tasks need runAt as ISO-8601. Store timezone explicitly. Do not ask the user to type.",
     inputSchema: z.object({
       name: z.string().min(1).max(80).describe('Short Persian name for the task'),
       kind: z
         .enum(['remind', 'run'])
         .optional()
         .describe(
-          'remind = notification only; run = unattended job whose result appears in کارها. Defaults to remind'
+          'remind = notification only; run = unattended job whose result and any attached md/csv/txt files appear in کارها. Defaults to remind'
         ),
       prompt: z
         .string()
         .min(1)
         .max(1_000)
         .describe(
-          'For remind, the exact notification text. For run, the complete instructions Micky should execute later'
+          'For remind, the exact notification text. For run, the complete instructions Micky should execute later; say to attach a csv or markdown file when the artifact is a file'
         ),
       scheduleType: z.enum(['once', 'recurring']),
       runAt: z
@@ -110,7 +113,7 @@ export function registerTaskTools(tools: ToolSet, hooks: TaskToolHooks): void {
         const parsed = parseSchedule(scheduleType, input.runAt, input.cron)
         if ('message' in parsed) return { created: false, message: parsed.message }
         const approved = await requestTaskApproval(hooks, 'create', {
-          purpose: input.purpose?.trim() || `یادآوری «${input.name.trim()}» را ذخیره کنم؟`,
+          purpose: input.purpose?.trim() || `${taskKindLabel(kind)} «${input.name.trim()}» را ذخیره کنم؟`,
           command: input.name.trim(),
           toolName: 'create_task',
           detail: scheduleDetail(scheduleType, parsed.runAt, parsed.cron, timezone)
@@ -156,7 +159,7 @@ export function registerTaskTools(tools: ToolSet, hooks: TaskToolHooks): void {
     execute: async (input) =>
       guardTask(async () => {
         const current = store.get(input.id)
-        if (!current) return { updated: false, message: 'یادآوری پیدا نشد.' }
+        if (!current) return { updated: false, message: 'زمان‌بندی پیدا نشد.' }
         const scheduleType = input.scheduleType ?? current.scheduleType
         const parsed = parseSchedule(
           scheduleType,
@@ -167,7 +170,7 @@ export function registerTaskTools(tools: ToolSet, hooks: TaskToolHooks): void {
         )
         if ('message' in parsed) return { updated: false, message: parsed.message }
         const approved = await requestTaskApproval(hooks, 'update', {
-          purpose: input.purpose?.trim() || `یادآوری «${current.name}» را عوض کنم؟`,
+          purpose: input.purpose?.trim() || `${taskKindLabel(current.kind)} «${current.name}» را عوض کنم؟`,
           command: current.name,
           toolName: 'update_task',
           detail: input.id
@@ -185,7 +188,7 @@ export function registerTaskTools(tools: ToolSet, hooks: TaskToolHooks): void {
           reportMode:
             input.reportMode && isTaskReportMode(input.reportMode) ? input.reportMode : undefined
         })
-        if (!task) return { updated: false, message: 'یادآوری پیدا نشد.' }
+        if (!task) return { updated: false, message: 'زمان‌بندی پیدا نشد.' }
         return { updated: true, task: toTaskView(task) }
       })
   })
@@ -204,15 +207,43 @@ export function registerTaskTools(tools: ToolSet, hooks: TaskToolHooks): void {
     execute: async ({ id, purpose }) =>
       guardTask(async () => {
         const current = store.get(id)
-        if (!current) return { deleted: false, message: 'یادآوری پیدا نشد.' }
+        if (!current) return { deleted: false, message: 'زمان‌بندی پیدا نشد.' }
         const approved = await requestTaskApproval(hooks, 'delete', {
-          purpose: purpose?.trim() || `یادآوری «${current.name}» را حذف کنم؟`,
+          purpose: purpose?.trim() || `${taskKindLabel(current.kind)} «${current.name}» را حذف کنم؟`,
           command: current.name,
           toolName: 'delete_task',
           detail: id
         })
         if (!approved) return approvalDenied()
         return { deleted: store.delete(id), id }
+      })
+  })
+}
+
+export function registerAttachFileTool(
+  tools: ToolSet,
+  hooks: { tasks?: TaskStore; taskRunId?: string; profile?: string }
+): void {
+  if (hooks.profile !== 'unattended' || !hooks.tasks || !hooks.taskRunId) return
+  const store = hooks.tasks
+  const runId = hooks.taskRunId
+
+  tools.attach_file = tool({
+    description:
+      'Attach a markdown, CSV, or plain-text file to this job run. Use when the useful artifact is a table, draft, or downloadable list — not a substitute for the readable writeup in کارها. Never pass a filesystem path; name and kind only. Do not attach a copy of the same writeup. At most four files per run; the same name overwrites.',
+    inputSchema: z.object({
+      name: z.string().min(1).max(80).describe('Short file name, with or without an extension'),
+      kind: z.enum(['md', 'csv', 'txt']).describe('md, csv, or txt only'),
+      content: z
+        .string()
+        .min(1)
+        .max(TASK_ATTACHMENT_MAX)
+        .describe('The exact UTF-8 file contents')
+    }),
+    execute: async ({ name, kind, content }) =>
+      guardTask(async () => {
+        const file = store.addAttachment(runId, { name, kind, content })
+        return { attached: true, name: file.name, kind: file.kind, bytes: file.bytes }
       })
   })
 }
@@ -281,7 +312,7 @@ async function guardTask<T>(run: () => Promise<T>): Promise<T | { error: string 
     return await run()
   } catch (error) {
     const message =
-      error instanceof Error && error.message.trim() ? error.message : 'ذخیره یادآوری ناموفق بود.'
+      error instanceof Error && error.message.trim() ? error.message : 'ذخیره زمان‌بندی ناموفق بود.'
     return { error: message }
   }
 }

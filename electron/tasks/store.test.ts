@@ -236,6 +236,52 @@ test('stores job runs, prunes old ones, and deletes them with the task', async (
   assert.equal(store.listRuns().length, 0)
 })
 
+test('stores run attachments, overwrites the same name, and deletes them with the run', async (t) => {
+  const { store } = await createStore(t)
+  const now = Date.parse('2026-08-26T18:00:00.000Z')
+  const task = store.create({
+    name: 'هزینه',
+    kind: 'run',
+    prompt: 'csv بساز',
+    scheduleType: 'once',
+    runAt: now,
+    timezone: 'UTC',
+    createdAt: now
+  })
+  const run = store.startRun(task.id, now)
+  const csv = store.addAttachment(run!.id, {
+    name: '../هزینه‌ها.csv',
+    kind: 'csv',
+    content: 'item,amount\ntea,2'
+  })
+  assert.equal(csv.name, 'هزینه‌ها.csv')
+  assert.equal(csv.kind, 'csv')
+  assert.equal(store.getAttachment(csv.id)?.content, 'item,amount\ntea,2')
+  assert.equal(store.getRun(run!.id)?.attachments.length, 1)
+
+  const again = store.addAttachment(run!.id, {
+    name: 'هزینه‌ها',
+    kind: 'csv',
+    content: 'item,amount\ncoffee,3'
+  })
+  assert.equal(again.id, csv.id)
+  assert.equal(store.getAttachment(csv.id)?.content, 'item,amount\ncoffee,3')
+  assert.equal(store.getRun(run!.id)?.attachments.length, 1)
+
+  store.addAttachment(run!.id, { name: 'notes', kind: 'md', content: '# hi' })
+  store.addAttachment(run!.id, { name: 'plain', kind: 'txt', content: 'ok' })
+  store.addAttachment(run!.id, { name: 'extra', kind: 'txt', content: 'four' })
+  assert.throws(
+    () => store.addAttachment(run!.id, { name: 'too-many', kind: 'txt', content: 'nope' }),
+    /۴ پیوست/
+  )
+
+  store.finishTaskRun(run!.id, { status: 'ok', result: 'آماده', now: now + 1 })
+  assert.equal(store.getSnapshot().runs[0]?.attachments[0]?.name, 'هزینه‌ها.csv')
+  assert.equal(store.delete(task.id), true)
+  assert.equal(store.getAttachment(csv.id), null)
+})
+
 test('rejects incomplete schedules', async (t) => {
   const { store } = await createStore(t)
   assert.throws(

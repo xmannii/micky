@@ -1,4 +1,4 @@
-import { ArrowRight, Clock, ListTodo } from 'lucide-react'
+import { ArrowRight, Check, Clock, Copy, Download, FileText, ListTodo } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { ChatMessageContent } from '@/components/chat-history-view'
 import { TextExportActions } from '@/components/text-export-actions'
@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   excerptTaskResult,
   taskRunStatusLabel,
+  type TaskAttachmentMeta,
   type TaskRunView,
   type TasksSnapshot
 } from '@/lib/tasks'
@@ -83,6 +84,9 @@ export function TaskRunPanel({
             </span>
             <span className="task-run-row-meta">
               {formatRunWhen(run.startedAt)}
+              {run.attachments.length > 0
+                ? ` · ${run.attachments.length.toLocaleString('fa-IR')} پیوست`
+                : ''}
               {run.status !== 'running' ? ` · ${excerptTaskResult(run.result, 72)}` : ''}
             </span>
           </button>
@@ -125,6 +129,7 @@ function TaskRunDetail({
             <p className="text-sm text-muted-foreground">نتیجه‌ای ثبت نشد.</p>
           )}
         </div>
+        <TaskRunAttachments files={run.attachments} />
       </ScrollArea>
     </div>
   )
@@ -161,8 +166,71 @@ export function TaskRunHistory({
               <ChatMessageContent content={run.result || 'نتیجه‌ای ثبت نشد.'} markdown />
             </div>
           )}
+          {run.attachments.length > 0 ? (
+            <p className="text-[0.62rem] text-muted-foreground">
+              {run.attachments.map((file) => file.name).join('، ')}
+            </p>
+          ) : null}
         </article>
       ))}
+    </div>
+  )
+}
+
+function TaskRunAttachments({ files }: { files: TaskAttachmentMeta[] }): React.JSX.Element | null {
+  if (files.length === 0) return null
+  return (
+    <div className="task-run-attachments">
+      {files.map((file) => (
+        <AttachmentChip key={file.id} file={file} />
+      ))}
+    </div>
+  )
+}
+
+function AttachmentChip({ file }: { file: TaskAttachmentMeta }): React.JSX.Element {
+  const [copied, setCopied] = useState(false)
+
+  const load = (): Promise<{ content: string; name: string } | null> =>
+    window.api.tasks.getAttachment(file.id)
+
+  const copy = async (): Promise<void> => {
+    const attached = await load()
+    if (!attached) return
+    const result = await window.api.app.copyText(attached.content)
+    if (!result.copied) return
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 1_400)
+  }
+
+  const save = async (): Promise<void> => {
+    const attached = await load()
+    if (!attached) return
+    await window.api.app.saveText({ content: attached.content, defaultName: attached.name })
+  }
+
+  return (
+    <div className="task-run-file">
+      <FileText className="size-3.5 text-muted-foreground" aria-hidden="true" />
+      <span className="truncate">{file.name}</span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => void copy()}
+        aria-label={copied ? 'کپی شد' : `کپی ${file.name}`}
+      >
+        {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => void save()}
+        aria-label={`ذخیره ${file.name}`}
+      >
+        <Download className="size-3.5" />
+      </Button>
     </div>
   )
 }

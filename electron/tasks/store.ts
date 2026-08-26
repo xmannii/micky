@@ -8,8 +8,12 @@ import {
   isTaskRunStatus,
   isTaskScheduleType,
   isTaskStatus,
+  isTaskAttachmentKind,
+  normalizeTaskAttachmentName,
   toTaskRunView,
   toTaskView,
+  TASK_ATTACHMENT_MAX,
+  TASK_ATTACHMENTS_PER_RUN,
   TASK_INTERRUPTED_RESULT,
   TASK_RUN_RESULT_MAX,
   TASK_RUNS_PER_TASK,
@@ -22,6 +26,9 @@ import {
   type TaskRunStatus,
   type TaskScheduleType,
   type TaskStatus,
+  type TaskAttachment,
+  type TaskAttachmentKind,
+  type TaskAttachmentMeta,
   type TasksSnapshot,
   type UpdateTaskInput
 } from '@/lib/tasks'
@@ -52,6 +59,15 @@ type TaskRunRow = {
   finished_at: number | null
   status: string
   result: string
+}
+
+type TaskAttachmentRow = {
+  id: string
+  run_id: string
+  name: string
+  kind: string
+  content: string
+  bytes: number
 }
 
 export class TaskStore {
@@ -273,7 +289,8 @@ export class TaskStore {
       startedAt: now,
       finishedAt: null,
       status: 'running',
-      result: ''
+      result: '',
+      attachments: []
     }
     this.#db
       .prepare(
@@ -311,7 +328,7 @@ export class TaskStore {
          WHERE r.id = ?`
       )
       .get(id) as TaskRunRow | undefined
-    return row ? toRun(row) : null
+    return row ? this.#hydrateRun(toRun(row)) : null
   }
 
   listRuns(taskId?: string): TaskRun[] {
@@ -335,7 +352,62 @@ export class TaskStore {
             )
             .all()
     ) as unknown as TaskRunRow[]
-    return rows.map(toRun)
+    return this.#hydrateRuns(rows.map(toRun))
+  }
+
+  addAttachment(
+    runId: string,
+    input: { name: string; kind: TaskAttachmentKind; content: string }
+  ): TaskAttachment {
+    if (!this.getRun(runId)) throw new Error('اجرا پیدا نشد.')
+    if (!isTaskAttachmentKind(input.kind)) throw new Error('این نوع فایل پیوست نمی‌شود.')
+    const content = input.content
+    if (!content.trim() || content.includes('\0')) {
+      throw new Error('محتوای پیوست خالی یا نامعتبر است.')
+    }
+    if (content.length > TASK_ATTACHMENT_MAX) {
+      throw new Error('این پیوست بزرگ‌تر از حد مجاز است.')
+    }
+    const name = normalizeTaskAttachmentName(input.name, input.kind)
+    const bytes = Buffer.byteLength(content, 'utf8')
+    const existing = this.#db
+      .prepare('SELECT id FROM task_run_attachments WHERE run_id = ? AND name = ?')
+      .get(runId, name) as { id?: string } | undefined
+    if (existing?.id) {
+      this.#db
+        .prepare(
+          `UPDATE task_run_attachments SET kind = ?, content = ?, bytes = ? WHERE id = ?`
+        )
+        .run(input.kind, content, bytes, existing.id)
+      this.#emitChange()
+      const updated = this.getAttachment(existing.id)
+      if (!updated) throw new Error('ذخیره پیوست ناموفق بود.')
+      return updated
+    }
+    const count = this.#db
+      .prepare('SELECT COUNT(*) AS count FROM task_run_attachments WHERE run_id = ?')
+      .get(runId) as { count?: number } | undefined
+    if (Number(count?.count ?? 0) >= TASK_ATTACHMENTS_PER_RUN) {
+      throw new Error('برای هر اجرا حداکثر ۴ پیوست می‌شود.')
+    }
+    const id = randomUUID()
+    this.#db
+      .prepare(
+        `INSERT INTO task_run_attachments (id, run_id, name, kind, content, bytes, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(id, runId, name, input.kind, content, bytes, Date.now())
+    this.#emitChange()
+    const created = this.getAttachment(id)
+    if (!created) throw new Error('ذخیره پیوست ناموفق بود.')
+    return created
+  }
+
+  getAttachment(id: string): TaskAttachment | null {
+    const row = this.#db
+      .prepare('SELECT * FROM task_run_attachments WHERE id = ?')
+      .get(id) as TaskAttachmentRow | undefined
+    return row ? toAttachment(row) : null
   }
 
   setRunning(id: string, running: boolean): ScheduledTask | null {
@@ -420,6 +492,7 @@ export class TaskStore {
     `)
     this.#ensureSchedulerTable()
     this.#ensureRunTable()
+    this.#ensureAttachmentTable()
   }
 
   #ensureSchedulerTable(): void {
@@ -473,6 +546,66 @@ export class TaskStore {
       CREATE INDEX IF NOT EXISTS task_runs_task
         ON task_runs(task_id, started_at DESC);
     `)
+  }
+
+  #ensureAttachmentTable(): void {
+    this.#db.exec(`
+      CREATE TABLE IF NOT EXISTS task_run_attachments (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('md', 'csv', 'txt')),
+        content TEXT NOT NULL,
+        bytes INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        UNIQUE (run_id, name),
+        FOREIGN KEY (run_id) REFERENCES task_runs(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS task_run_attachments_run
+        ON task_run_attachments(run_id, created_at ASC);
+    `)
+  }
+
+  #hydrateRun(run: TaskRun): TaskRun {
+    return this.#hydrateRuns([run])[0]!
+  }
+
+  #hydrateRuns(runs: TaskRun[]): TaskRun[] {
+    if (runs.length === 0) return runs
+    const grouped = this.#attachmentsByRunIds(runs.map((run) => run.id))
+    return runs.map((run) => ({ ...run, attachments: grouped.get(run.id) ?? [] }))
+  }
+
+  #attachmentsByRunIds(runIds: string[]): Map<string, TaskAttachmentMeta[]> {
+    const grouped = new Map<string, TaskAttachmentMeta[]>()
+    if (runIds.length === 0) return grouped
+    const placeholders = runIds.map(() => '?').join(', ')
+    const rows = this.#db
+      .prepare(
+        `SELECT id, run_id, name, kind, bytes FROM task_run_attachments
+         WHERE run_id IN (${placeholders})
+         ORDER BY created_at ASC`
+      )
+      .all(...runIds) as unknown as Array<{
+      id: string
+      run_id: string
+      name: string
+      kind: string
+      bytes: number
+    }>
+    for (const row of rows) {
+      if (!isTaskAttachmentKind(row.kind)) continue
+      const list = grouped.get(row.run_id) ?? []
+      list.push({
+        id: row.id,
+        name: row.name,
+        kind: row.kind,
+        bytes: Number(row.bytes)
+      })
+      grouped.set(row.run_id, list)
+    }
+    return grouped
   }
 
   #pruneRuns(taskId: string): void {
@@ -561,7 +694,20 @@ function toRun(row: TaskRunRow): TaskRun {
     startedAt: Number(row.started_at),
     finishedAt: row.finished_at == null ? null : Number(row.finished_at),
     status: row.status,
-    result: row.result
+    result: row.result,
+    attachments: []
+  }
+}
+
+function toAttachment(row: TaskAttachmentRow): TaskAttachment {
+  if (!isTaskAttachmentKind(row.kind)) throw new Error(`Invalid attachment kind "${row.kind}".`)
+  return {
+    id: row.id,
+    runId: row.run_id,
+    name: row.name,
+    kind: row.kind,
+    bytes: Number(row.bytes),
+    content: row.content
   }
 }
 

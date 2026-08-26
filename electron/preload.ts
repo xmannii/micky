@@ -45,7 +45,7 @@ import {
 } from '@/lib/soul'
 import type { WakeWordActivation, WakeWordStatus } from '@/lib/wake-word'
 import { SKILLS_SNAPSHOT_CHANNEL, type SkillsSnapshot } from '@/lib/skills'
-import { TASKS_OPEN_RUN_CHANNEL, TASKS_SNAPSHOT_CHANNEL, type TasksSnapshot } from '@/lib/tasks'
+import { TASKS_OPEN_RUN_CHANNEL, TASKS_SNAPSHOT_CHANNEL, type TaskAttachment, type TasksSnapshot } from '@/lib/tasks'
 import type { SaveTextInput, SaveTextResult, CopyTextResult } from '@/lib/export-text'
 import {
   WEB_SEARCH_SNAPSHOT_CHANNEL,
@@ -226,6 +226,8 @@ const api: MickyAPI = {
   },
   tasks: {
     getSnapshot: (): Promise<TasksSnapshot> => ipcRenderer.invoke('tasks:get-snapshot'),
+    getAttachment: (id: string): Promise<TaskAttachment | null> =>
+      ipcRenderer.invoke('tasks:get-attachment', id),
     update: (id, patch): Promise<TasksSnapshot> => ipcRenderer.invoke('tasks:update', id, patch),
     delete: (id): Promise<TasksSnapshot> => ipcRenderer.invoke('tasks:delete', id),
     onSnapshotChange: (listener: (snapshot: TasksSnapshot) => void): (() => void) =>

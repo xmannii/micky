@@ -28,7 +28,7 @@ import type {
   WebSearchProviderId,
   WebSearchSnapshot
 } from '@/lib/web-search'
-import type { TaskPatchPayload, TasksSnapshot } from '@/lib/tasks'
+import type { TaskAttachment, TaskPatchPayload, TasksSnapshot } from '@/lib/tasks'
 import type { SaveTextInput, SaveTextResult, CopyTextResult } from '@/lib/export-text'
 import type { AppUpdateSnapshot } from '@/lib/app-update'
 import type { MainWindowMode } from '@/lib/home-layout'
@@ -143,6 +143,7 @@ export type MickyAPI = {
   }
   tasks: {
     getSnapshot: () => Promise<TasksSnapshot>
+    getAttachment: (id: string) => Promise<TaskAttachment | null>
     update: (id: string, patch: TaskPatchPayload) => Promise<TasksSnapshot>
     delete: (id: string) => Promise<TasksSnapshot>
     onSnapshotChange: (listener: (snapshot: TasksSnapshot) => void) => () => void
