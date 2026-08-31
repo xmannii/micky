@@ -40,6 +40,16 @@ test('keeps the spoken-voice contract and skips empty user layers', () => {
   assert.match(prompt, /living context/)
   assert.match(prompt, /search_chats/)
   assert.match(prompt, /read_chat/)
+  assert.match(prompt, /create_task/)
+  assert.match(prompt, /kind run/)
+  assert.match(prompt, /کارها/)
+  assert.match(prompt, /launchd/)
+  assert.match(prompt, /Never say it is unfinished/)
+  assert.match(prompt, /Do not fetch or summarize in this turn/)
+  assert.match(prompt, /attach_file/)
+  assert.match(prompt, /Offer, do not nag/)
+  assert.match(prompt, /Wait for a yes before create_task/)
+  assert.match(prompt, /single offer to save a reminder/)
   assert.doesNotMatch(prompt, /get_current_datetime/)
   assert.doesNotMatch(prompt, /^User$/m)
   assert.doesNotMatch(prompt, /^Memory$/m)
@@ -58,6 +68,20 @@ test('uses a compact written contract for flyover replies', () => {
   assert.match(prompt, /Lightweight Markdown is supported/)
   assert.match(prompt, /compact tables/)
   assert.match(prompt, /Do not use images, raw HTML, long code fences/)
+  assert.doesNotMatch(prompt, /speech playback is enabled/)
+})
+
+test('uses a written unattended contract for scheduled jobs', () => {
+  const prompt = buildSystemPrompt(
+    { soul: '', user: '', memory: '', now: new Date('2026-08-19T18:00:00.000Z') },
+    [],
+    { responseSurface: 'scheduled' }
+  )
+  assert.match(prompt, /scheduled job/)
+  assert.match(prompt, /no user in the loop/)
+  assert.match(prompt, /Do not offer to schedule anything/)
+  assert.match(prompt, /attach_file/)
+  assert.match(prompt, /کارها/)
   assert.doesNotMatch(prompt, /speech playback is enabled/)
 })
 

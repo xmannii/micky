@@ -8,7 +8,7 @@ import {
   RotateCcw,
   Settings
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ThinkingOrb, type OrbState } from 'thinking-orbs'
 import { ActiveConversationPanel } from '@/components/active-conversation-panel'
 import { AgentReplyView } from '@/components/agent-reply-view'
@@ -37,6 +37,7 @@ import { useSoul } from '@/hooks/use-soul'
 import { useSpeech } from '@/hooks/use-speech'
 import { useSettings } from '@/hooks/use-settings'
 import { useTurnCues } from '@/hooks/use-turn-cues'
+import { useTasks } from '@/hooks/use-tasks'
 import { useTts } from '@/hooks/use-tts'
 import { useWakeWord } from '@/hooks/use-wake-word'
 import { useEarcons } from '@/hooks/use-earcons'
@@ -114,6 +115,7 @@ function App(): React.JSX.Element {
     DEFAULT_CONVERSATION_PANEL_EXPANDED
   )
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
+  const [openRunId, setOpenRunId] = useState<string | null>(null)
   const [firstConversationName, setFirstConversationName] = useState<string | null>(null)
   const [wakeWordTogglePending, setWakeWordTogglePending] = useState(false)
   const [wakeWordToggleError, setWakeWordToggleError] = useState<string | null>(null)
@@ -126,11 +128,20 @@ function App(): React.JSX.Element {
   const agent = useAgent()
   const conversation = useConversation()
   const chats = useChats()
+  const tasks = useTasks()
   const tts = useTts(settings?.outputDeviceId)
   const onboardingActive = soul?.onboardingCompleted === false
   useTurnCues(conversation)
   useEarcons(window.api.app.onEarcon, settings?.outputDeviceId)
   useEffect(() => window.api.app.onOpenSettings(() => setScreen('settings')), [])
+  useEffect(() => {
+    return window.api.tasks.onOpenRun((runId) => {
+      setScreen('home')
+      setConversationPanelExpanded(true)
+      setOpenRunId(runId)
+    })
+  }, [])
+  const handleOpenRunHandled = useCallback(() => setOpenRunId(null), [])
   useEffect(() => {
     void window.api.app.setWindowMode(
       resolveMainWindowMode({ onboardingActive, screen, conversationPanelExpanded })
@@ -339,14 +350,14 @@ function App(): React.JSX.Element {
                   size="icon"
                   className="home-panel-reveal"
                   onClick={() => setConversationPanelExpanded(true)}
-                  aria-label="باز کردن بخش گفتگو"
+                  aria-label="باز کردن گفتگو و کارها"
                 />
               }
             >
               <PanelRightOpen />
             </TooltipTrigger>
             <TooltipContent side="left" dir="rtl">
-              نمایش گفتگو
+              نمایش گفتگو و کارها
             </TooltipContent>
           </Tooltip>
         ) : null}
@@ -600,6 +611,9 @@ function App(): React.JSX.Element {
           conversation={conversation}
           transcript={showTranscript ? transcript : null}
           modelUnavailable={modelUnavailable}
+          tasks={tasks}
+          openRunId={openRunId}
+          onOpenRunHandled={handleOpenRunHandled}
           onCollapse={() => setConversationPanelExpanded(false)}
           onOpenHistory={() => setScreen('history')}
           onStartFresh={handleStartFresh}

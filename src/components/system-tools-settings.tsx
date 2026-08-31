@@ -1,5 +1,6 @@
 import {
   AppWindow,
+  Clock,
   FilePenLine,
   FileSearch,
   FileText,
@@ -137,6 +138,54 @@ export function SystemToolsSettings({
 
   return (
     <div className="flex flex-col gap-3">
+      <Card size="sm" className="bg-card/30">
+        <CardHeader>
+          <CardTitle>زمان‌بندی</CardTitle>
+          <CardDescription>
+            یادآوری و کارهای زمان‌دار را میکی از گفتگو می‌سازد؛ پیش‌فرض بدون پرسیدن ذخیره می‌شوند
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Field orientation="horizontal">
+            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
+              <Clock aria-hidden="true" />
+            </span>
+            <FieldContent>
+              <FieldLabel htmlFor="tool-policy-manage_tasks">ساخت و تغییر زمان‌بندی</FieldLabel>
+              <FieldDescription className="text-[0.68rem] leading-5">
+                {taskModeDescription(settings.toolApprovals.manage_tasks)}
+              </FieldDescription>
+            </FieldContent>
+            <Select
+              value={settings.toolApprovals.manage_tasks}
+              onValueChange={(mode) => {
+                if (isToolApprovalMode(mode)) {
+                  void window.api.settings.setToolApproval('manage_tasks', mode)
+                }
+              }}
+            >
+              <SelectTrigger
+                id="tool-policy-manage_tasks"
+                size="sm"
+                className="w-30 shrink-0"
+                aria-label="اجازه زمان‌بندی"
+              >
+                <SelectValue>{modeLabel(settings.toolApprovals.manage_tasks)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {MODE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+        </CardContent>
+      </Card>
+
       <Card size="sm" className="bg-card/30">
         <CardHeader>
           <CardTitle id="system-tools-label">فایل‌ها، برنامه‌ها و دستورها</CardTitle>
@@ -279,4 +328,11 @@ function presetDescription(preset: ReturnType<typeof detectToolApprovalPreset>):
 
 function modeLabel(mode: ToolApprovalMode): string {
   return MODE_OPTIONS.find((option) => option.value === mode)?.label ?? mode
+}
+
+function taskModeDescription(mode: ToolApprovalMode): string {
+  if (mode === 'confirm') return 'پیش از ساخت، ویرایش یا حذف از تو اجازه می‌گیرد'
+  if (mode === 'smart') return 'ساخت و ویرایش مستقیم است؛ برای حذف می‌پرسد'
+  if (mode === 'blocked') return 'ابزار زمان‌بندی خاموش است'
+  return 'ساخت، ویرایش و حذف بدون پرسیدن انجام می‌شود'
 }

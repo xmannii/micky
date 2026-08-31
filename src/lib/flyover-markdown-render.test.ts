@@ -39,3 +39,15 @@ test('renders the same safe Markdown inside chat history', () => {
   assert.match(html, /<h2>نتیجه<\/h2>/)
   assert.match(html, /<strong>اول<\/strong>/)
 })
+
+test('lets the reader follow the text direction automatically', () => {
+  const html = renderToStaticMarkup(
+    createElement(ChatMarkdown, {
+      text: '## GTA 6\n\nCyberleek update from Mashable.',
+      dir: 'auto'
+    })
+  )
+
+  assert.match(html, /dir="auto"/)
+  assert.match(html, /<h2>GTA 6<\/h2>/)
+})

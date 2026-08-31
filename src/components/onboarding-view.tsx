@@ -2,6 +2,7 @@ import {
   BrainCircuit,
   Check,
   ClipboardPaste,
+  Clock,
   Database,
   Download,
   Ear,
@@ -12,7 +13,6 @@ import {
   MessageCircleQuestion,
   MicOff,
   MousePointer2,
-  PenLine,
   PanelRightOpen,
   Puzzle,
   Sparkles,
@@ -257,7 +257,7 @@ export function OnboardingView({
         {step === 4 ? (
           <StepBody
             eyebrow="آخرین مرحله"
-            title="شخصیت، ابزارها و مهارت‌ها"
+            title="شخصیت، ابزارها و زمان‌بندی"
             description="لحن من رو برای خودت تنظیم کن و ببین چطور قابلیت‌های بیشتری بهم می‌دی. همه‌شون بعداً هم از تنظیمات قابل تغییرن."
             topAligned
           >
@@ -333,6 +333,14 @@ export function OnboardingView({
                         )
                     }
               }
+            />
+
+            <CapabilityGuide
+              icon={Clock}
+              title="زمان‌بندی"
+              status="از گفتگو ساخته می‌شه"
+              description="بگو کی یادت بندازم یا کی کاری انجام بدم. یادآوری فقط خبر می‌ده؛ کار رو سر وقت خودم انجام می‌دم و نتیجه‌ش، با هر فایلی که لازم باشه، می‌ره تو کارها."
+              guide="لازم نیست چیزی نصب کنی. میکی باید باز باشه — حتی تو سینی کافیه. کارها مغز می‌خوان. از تنظیمات → زمان‌بندی می‌تونی ببینی، متوقف کنی یا حذف کنی."
             />
 
             <CapabilityGuide
@@ -698,8 +706,8 @@ function UseCasesStep({
             <span className="shrink-0 text-[0.58rem] text-muted-foreground">جمع‌شدنی</span>
           </div>
           <p className="mt-1 text-[0.65rem] leading-5 text-muted-foreground">
-            پنل گفتگو اول بسته‌ست. از دستگیرهٔ وسط لبه بازش کن تا جواب‌های کامل، جدول‌ها و تاریخچه
-            رو بخونی یا تایپ کنی؛ بعد هم با همون دستگیره جمعش کن.
+            پنل گفتگو اول بسته‌ست. از دستگیرهٔ وسط لبه بازش کن تا جواب‌های کامل، کارها، جدول‌ها و
+            تاریخچه رو بخونی یا تایپ کنی؛ بعد هم با همون دستگیره جمعش کن.
           </p>
         </div>
       </section>
@@ -709,9 +717,9 @@ function UseCasesStep({
         <UseCaseCard icon={Eye} title="صفحه رو نشونم بده" example="«ببین اینجا چه اتفاقی افتاده»" />
         <UseCaseCard icon={Wrench} title="یه کار بسپر" example="«این فایل رو برام پیدا کن»" />
         <UseCaseCard
-          icon={PenLine}
-          title="به‌جای تایپ حرف بزن"
-          example="متنت همون‌جا نوشته می‌شه"
+          icon={Clock}
+          title="سر وقت بسپار"
+          example="«هر شب خبرها رو خلاصه کن»"
         />
       </div>
 
@@ -817,6 +825,10 @@ function ReadyStep({
             </KbdGroup>
             میانبرهای دیگه هنوز کار می‌کنن.
           </span>
+        </ReadyHint>
+        <ReadyHint icon={Clock} title="سر وقت بگو یا کار بسپار">
+          بگو کی یادت بندازم یا کی خلاصه و چک کنم. نتیجهٔ کارها تو پنل کارهاست؛ لیستش هم تو تنظیمات →
+          زمان‌بندی.
         </ReadyHint>
         <ReadyHint icon={Volume2} title="بعداً نظرت عوض شد؟">
           تنظیمات همیشه در دسترسه؛ مدل‌ها، صدام و اطلاعاتی که ذخیره کردم همون‌جاست.

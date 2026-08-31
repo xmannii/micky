@@ -13,7 +13,7 @@ import type {
   FlyoverInputMode,
   ScreenAccessStatus,
   SettingsSnapshot,
-  SystemToolId,
+  ApprovalToolId,
   ToolApprovalMode,
   ToolApprovalPreset
 } from '@/lib/settings'
@@ -28,6 +28,8 @@ import type {
   WebSearchProviderId,
   WebSearchSnapshot
 } from '@/lib/web-search'
+import type { TaskAttachment, TaskPatchPayload, TasksSnapshot } from '@/lib/tasks'
+import type { SaveTextInput, SaveTextResult, CopyTextResult } from '@/lib/export-text'
 import type { AppUpdateSnapshot } from '@/lib/app-update'
 import type { MainWindowMode } from '@/lib/home-layout'
 
@@ -100,7 +102,7 @@ export type MickyAPI = {
   settings: {
     getSnapshot: () => Promise<SettingsSnapshot>
     setSystemToolsEnabled: (enabled: boolean) => Promise<SettingsSnapshot>
-    setToolApproval: (toolId: SystemToolId, mode: ToolApprovalMode) => Promise<SettingsSnapshot>
+    setToolApproval: (toolId: ApprovalToolId, mode: ToolApprovalMode) => Promise<SettingsSnapshot>
     setToolApprovalPreset: (preset: ToolApprovalPreset) => Promise<SettingsSnapshot>
     setFlyoverInputMode: (mode: FlyoverInputMode) => Promise<SettingsSnapshot>
     setScreenAccessEnabled: (enabled: boolean) => Promise<SettingsSnapshot>
@@ -139,10 +141,20 @@ export type MickyAPI = {
     openCatalog: () => Promise<void>
     onSnapshotChange: (listener: (snapshot: SkillsSnapshot) => void) => () => void
   }
+  tasks: {
+    getSnapshot: () => Promise<TasksSnapshot>
+    getAttachment: (id: string) => Promise<TaskAttachment | null>
+    update: (id: string, patch: TaskPatchPayload) => Promise<TasksSnapshot>
+    delete: (id: string) => Promise<TasksSnapshot>
+    onSnapshotChange: (listener: (snapshot: TasksSnapshot) => void) => () => void
+    onOpenRun: (listener: (runId: string) => void) => () => void
+  }
   app: {
     platform: DesktopPlatform
     isDevelopment: boolean
     setWindowMode: (mode: MainWindowMode) => Promise<void>
+    saveText: (input: SaveTextInput) => Promise<SaveTextResult>
+    copyText: (text: string) => Promise<CopyTextResult>
     onOpenSettings: (listener: () => void) => () => void
     onEarcon: (listener: (kind: EarconKind) => void) => () => void
   }

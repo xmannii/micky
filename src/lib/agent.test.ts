@@ -15,6 +15,8 @@ test('uses a specific spoken status for each tool', () => {
   assert.equal(agentStatusLabel('tool', 'search_web'), 'دارم وب رو می‌گردم…')
   assert.equal(agentStatusLabel('tool', 'search_files'), 'دارم دنبال فایل می‌گردم…')
   assert.equal(agentStatusLabel('tool', 'run_command'), 'دارم یه دستور اجرا می‌کنم…')
+  assert.equal(agentStatusLabel('tool', 'create_task'), 'دارم زمان‌بندی رو ذخیره می‌کنم…')
+  assert.equal(agentStatusLabel('tool', 'list_tasks'), 'دارم زمان‌بندی رو می‌خونم…')
   assert.equal(agentStatusLabel('tool', 'unknown'), 'یک لحظه…')
 })
 
@@ -29,5 +31,7 @@ test('uses short labels for tool activity UI', () => {
   assert.equal(agentToolLabel('open_app'), 'بازکردن')
   assert.equal(agentToolLabel('search_chats'), 'جستجوی گفتگوها')
   assert.equal(agentToolLabel('search_web'), 'جستجوی وب')
+  assert.equal(agentToolLabel('create_task'), 'ثبت زمان‌بندی')
+  assert.equal(agentToolLabel('attach_file'), 'پیوست فایل')
   assert.equal(agentToolLabel('unknown'), 'انجام کار')
 })

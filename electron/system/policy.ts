@@ -42,7 +42,17 @@ const AUTO_BINARIES = new Set([
 
 const GIT_AUTO_SUBCOMMANDS = new Set(['status', 'log', 'diff', 'show', 'branch', 'ls-files'])
 
-const BLOCKED_BINARIES = new Set(['sudo', 'su', 'dd', 'mkfs', 'csrutil', 'nvram', 'security'])
+const BLOCKED_BINARIES = new Set([
+  'sudo',
+  'su',
+  'dd',
+  'mkfs',
+  'csrutil',
+  'nvram',
+  'security',
+  'launchctl',
+  'crontab'
+])
 
 const SHELL_META = /(?:[|;&`$<>()\n\r]|&&|\|\|)/
 const DOWNLOAD_TO_SHELL =
@@ -61,6 +71,9 @@ export async function classifyCommand(
   }
   if (/\bsudo\b/i.test(trimmed) || /\bcsrutil\b/i.test(trimmed)) {
     return { tier: 'blocked', argv: null, binary: null, reason: 'privileged' }
+  }
+  if (/\blaunchctl\b/i.test(trimmed) || /\bcrontab\b/i.test(trimmed)) {
+    return { tier: 'blocked', argv: null, binary: null, reason: 'os-scheduler' }
   }
 
   const argv = parseArgv(trimmed)

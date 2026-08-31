@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { useDeferredValue, useEffect, useRef, useState } from 'react'
 import { ChatMessageContent } from '@/components/chat-history-view'
+import { TaskRunPanel } from '@/components/task-run-panel'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Field, FieldLabel } from '@/components/ui/field'
@@ -25,6 +26,7 @@ import type { SpeechTranscript } from '@/lib/asr'
 import type { ChatDetail, ChatMessage } from '@/lib/chats'
 import type { ConversationStatus } from '@/lib/conversation'
 import { detectTextDirection } from '@/lib/text-direction'
+import type { TasksSnapshot } from '@/lib/tasks'
 
 const PERSIAN_TIME = new Intl.DateTimeFormat('fa-IR', {
   hour: '2-digit',
@@ -37,6 +39,9 @@ type ActiveConversationPanelProps = {
   conversation: ConversationStatus | null
   transcript: SpeechTranscript | null | undefined
   modelUnavailable: boolean
+  tasks: TasksSnapshot | null
+  openRunId: string | null
+  onOpenRunHandled: () => void
   onCollapse: () => void
   onOpenHistory: () => void
   onStartFresh: () => void
@@ -87,11 +92,15 @@ export function ActiveConversationPanel({
   conversation,
   transcript,
   modelUnavailable,
+  tasks,
+  openRunId,
+  onOpenRunHandled,
   onCollapse,
   onOpenHistory,
   onStartFresh,
   onSend
 }: ActiveConversationPanelProps): React.JSX.Element {
+  const [tab, setTab] = useState<'chat' | 'runs'>('chat')
   const [draft, setDraft] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -113,7 +122,11 @@ export function ActiveConversationPanel({
   const liveTranscript = transcript?.text?.trim() ?? ''
   const conversationBusy = conversation?.mode === 'agent' || conversation?.mode === 'confirm'
   const panelStatus =
-    conversation?.mode === 'confirm'
+    tab === 'runs'
+      ? tasks?.runs.some((run) => run.status === 'running')
+        ? 'دارد کار می‌کند'
+        : 'نتیجه‌ها'
+      : conversation?.mode === 'confirm'
       ? 'منتظر تأیید تو'
       : conversation?.mode === 'agent'
         ? agentStatusLabel(agent?.phase ?? 'thinking', turn?.toolName)
@@ -145,6 +158,12 @@ export function ActiveConversationPanel({
     }
   }
 
+  useEffect(() => {
+    if (openRunId) setTab('runs')
+  }, [openRunId])
+
+  const showChat = tab === 'chat'
+
   return (
     <aside className="active-conversation-panel" aria-label="گفتگوی جاری">
       <header className="conversation-panel-header">
@@ -167,31 +186,33 @@ export function ActiveConversationPanel({
           </TooltipContent>
         </Tooltip>
         <div className="conversation-panel-title min-w-0 flex-1 text-start">
-          <h2 className="truncate">{chat?.title ?? 'گفتگوی تازه'}</h2>
+          <h2 className="truncate">{tab === 'runs' ? 'کارها' : (chat?.title ?? 'گفتگوی تازه')}</h2>
           <div className="conversation-panel-presence">
             <span data-active={conversationBusy} aria-hidden="true" />
             <p aria-live="polite">{panelStatus}</p>
           </div>
         </div>
         <nav className="conversation-panel-actions" aria-label="کارهای گفتگو">
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={onStartFresh}
-                  disabled={conversationBusy}
-                  aria-label="گفتگوی تازه"
-                />
-              }
-            >
-              <MessageSquarePlus />
-            </TooltipTrigger>
-            <TooltipContent side="bottom" dir="rtl">
-              گفتگوی تازه
-            </TooltipContent>
-          </Tooltip>
+          {tab === 'chat' ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={onStartFresh}
+                    disabled={conversationBusy}
+                    aria-label="گفتگوی تازه"
+                  />
+                }
+              >
+                <MessageSquarePlus />
+              </TooltipTrigger>
+              <TooltipContent side="bottom" dir="rtl">
+                گفتگوی تازه
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
           <Tooltip>
             <TooltipTrigger
               render={
@@ -212,9 +233,29 @@ export function ActiveConversationPanel({
         </nav>
       </header>
 
+      <div className="conversation-panel-tabs" role="tablist" aria-label="گفتگو یا کارها">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'chat'}
+          onClick={() => setTab('chat')}
+        >
+          گفتگو
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'runs'}
+          onClick={() => setTab('runs')}
+        >
+          کارها
+        </button>
+      </div>
+
       <Separator />
 
-      <ScrollArea className="min-h-0 flex-1" dir="ltr">
+      {showChat ? (
+        <ScrollArea className="min-h-0 flex-1" dir="ltr">
         {hasMessages ? (
           <div className="conversation-panel-thread" dir="rtl" aria-live="polite">
             {persistedMessages.map((message) => (
@@ -247,48 +288,56 @@ export function ActiveConversationPanel({
           </Empty>
         )}
       </ScrollArea>
-
-      <Separator />
-
-      <footer className="conversation-panel-footer">
-        <form onSubmit={(event) => void handleSubmit(event)}>
-          <Field orientation="horizontal" className="conversation-composer-field">
-            <FieldLabel htmlFor="conversation-composer" className="sr-only">
-              پیام به میکی
-            </FieldLabel>
-            <InputGroup
-              className="conversation-composer-group h-14 overflow-hidden rounded-full border-foreground/20 bg-foreground/8 dark:bg-foreground/8"
-              dir="ltr"
-            >
-              <InputGroupInput
-                id="conversation-composer"
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                placeholder={conversationBusy ? 'میکی هنوز مشغوله…' : 'به میکی بنویس…'}
-                aria-label="پیام به میکی"
-                dir={detectTextDirection(draft)}
-                disabled={!canCompose || submitting}
-                autoComplete="off"
-              />
-              <InputGroupAddon align="inline-end">
-                <InputGroupButton
-                  type="submit"
-                  variant="default"
-                  size="icon-sm"
-                  className="size-8 rounded-full"
-                  aria-label="فرستادن پیام"
-                  disabled={!draft.trim() || !canCompose || submitting}
-                >
-                  <ArrowUp />
-                </InputGroupButton>
-              </InputGroupAddon>
-            </InputGroup>
-          </Field>
-        </form>
-        <div className="conversation-panel-footer-meta">
-          <span>{submitError ?? 'Enter بفرست · برای حرف زدن روی گوی بزن'}</span>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col">
+          <TaskRunPanel snapshot={tasks} openRunId={openRunId} onOpenRunHandled={onOpenRunHandled} />
         </div>
-      </footer>
+      )}
+
+      {showChat ? (
+        <>
+          <Separator />
+          <footer className="conversation-panel-footer">
+            <form onSubmit={(event) => void handleSubmit(event)}>
+              <Field orientation="horizontal" className="conversation-composer-field">
+                <FieldLabel htmlFor="conversation-composer" className="sr-only">
+                  پیام به میکی
+                </FieldLabel>
+                <InputGroup
+                  className="conversation-composer-group h-14 overflow-hidden rounded-full border-foreground/20 bg-foreground/8 dark:bg-foreground/8"
+                  dir="ltr"
+                >
+                  <InputGroupInput
+                    id="conversation-composer"
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    placeholder={conversationBusy ? 'میکی هنوز مشغوله…' : 'به میکی بنویس…'}
+                    aria-label="پیام به میکی"
+                    dir={detectTextDirection(draft)}
+                    disabled={!canCompose || submitting}
+                    autoComplete="off"
+                  />
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupButton
+                      type="submit"
+                      variant="default"
+                      size="icon-sm"
+                      className="size-8 rounded-full"
+                      aria-label="فرستادن پیام"
+                      disabled={!draft.trim() || !canCompose || submitting}
+                    >
+                      <ArrowUp />
+                    </InputGroupButton>
+                  </InputGroupAddon>
+                </InputGroup>
+              </Field>
+            </form>
+            <div className="conversation-panel-footer-meta">
+              <span>{submitError ?? 'Enter بفرست · برای حرف زدن روی گوی بزن'}</span>
+            </div>
+          </footer>
+        </>
+      ) : null}
     </aside>
   )
 }
