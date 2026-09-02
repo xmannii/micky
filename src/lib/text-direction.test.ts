@@ -19,3 +19,19 @@ test('keeps the fallback while the draft has no letters yet', () => {
   assert.equal(detectTextDirection('  ۱۲۳ …'), 'rtl')
   assert.equal(detectTextDirection('123', 'ltr'), 'ltr')
 })
+
+test('does not count Persian or Arabic-Indic digits as directional words', () => {
+  for (const digits of ['123 456', '۱۲۳ ۴۵۶', '١٢٣ ٤٥٦']) {
+    assert.equal(detectTextDirection(`Hello ${digits}`), 'ltr')
+    assert.equal(detectTextDirection(`سلام ${digits}`, 'ltr'), 'rtl')
+    assert.equal(detectTextDirection(digits, 'ltr'), 'ltr')
+    assert.equal(detectTextDirection(digits, 'rtl'), 'rtl')
+  }
+})
+
+test("does not let attached numerals outweigh a word's letters", () => {
+  assert.equal(detectTextDirection('API۱۲۳۴'), 'ltr')
+  assert.equal(detectTextDirection('API١٢٣٤'), 'ltr')
+  assert.equal(detectTextDirection('سلام1234', 'ltr'), 'rtl')
+  assert.equal(detectTextDirection('Ⅻ'), 'ltr')
+})
